@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use lazy_static::lazy_static;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 use poise::serenity_prelude as serenity;
 
@@ -11,13 +13,13 @@ struct Data {
     mai_charts: Box<HashMap<String, MaiInfo>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct MaiDifficulty {
     st: Option<Difficulty>,
     dx: Option<Difficulty>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 struct Difficulty {
     bas: String,
     adv: String,
@@ -26,13 +28,24 @@ struct Difficulty {
     extra: Option<String>,
 }
 
-#[derive(Debug)]
+lazy_static! {
+    static ref SONG_REPLACEMENT: HashMap<String, String> = {
+        [
+            ("GIGANTOMAKHIA", "GIGANTØMAKHIA"),
+            ("D✪N’T ST✪P R✪CKIN’", "D✪N’T  ST✪P  R✪CKIN’"),
+        ]
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect::<HashMap<_, _>>()
+    };
+}
+
+#[derive(Debug, PartialEq)]
 struct MaiInfo {
     jp_lv: Option<MaiDifficulty>,
     intl_lv: Option<MaiDifficulty>,
     jp_jacket: Option<String>,
-    intl_jacket: Option<String>,
-
+    // intl_jacket: Option<String>,
     title: String,
     artist: String,
     // bpm: String,
@@ -97,9 +110,21 @@ async fn register(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+fn float_to_level(f: &str) -> String {
+    let f = f.parse::<f32>().unwrap().abs();
+    let decimal = f - f.floor();
+
+    if decimal < 0.65 {
+        f.floor().to_string()
+    } else {
+        format!("{}+", f.floor())
+    }
+}
+
 fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     let mut charts = HashMap::new();
 
+    // Get JP difficulty.
     let jp_url = fs::read_to_string("data/maimai-jp.txt")?;
     let jp_url = jp_url.trim();
     let s = get_curl(jp_url);
@@ -121,11 +146,17 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         };
 
         let title = serdest_to_string(song.get("title").unwrap());
+        // Edge case handling for duplicate title
+        let title =
+            if title == "Link" && serdest_to_string(song.get("catcode").unwrap()) == "maimai" {
+                "Link (maimai)".to_string()
+            } else {
+                title
+            };
+
         let jp_jacket = serdest_to_string(song.get("image_url").unwrap());
         let artist = serdest_to_string(song.get("artist").unwrap());
-        // let ordering = serdest_to_string(song.get("sort").unwrap())
-        //     .parse::<usize>()
-        //     .unwrap();
+
         let st_lv = if song.contains_key("lev_bas") {
             Some(Difficulty {
                 bas: serdest_to_string(song.get("lev_bas").unwrap()),
@@ -161,17 +192,113 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             st: st_lv,
             dx: dx_lv,
         };
-        charts.insert(
+        let r = charts.insert(
             title.clone(),
             MaiInfo {
                 jp_lv: Some(jp_lv),
                 intl_lv: None,
                 jp_jacket: Some(jp_jacket),
-                intl_jacket: None,
+                // intl_jacket: None,
                 title,
                 artist,
             },
         );
+        assert_eq!(r, None);
+    }
+
+    // Get intl difficulty.
+    // deleted songs
+    let mut jp_del_songs = HashSet::new();
+    let file = File::open("data/jp_del.txt")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        jp_del_songs.insert(line);
+    }
+
+    let file = File::open("in_lv.csv")?;
+    let reader = BufReader::new(file);
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.split("\t").collect::<Vec<_>>();
+        assert_eq!(line.len(), 7);
+        let title = SONG_REPLACEMENT
+            .get(line[6])
+            .unwrap_or(&line[6].to_string())
+            .to_string();
+        // Edge case handling for duplicate title
+        let title = if title == "Link" && line[4] == "-12" {
+            "Link (maimai)".to_string()
+        } else {
+            title
+        };
+        if jp_del_songs.contains(&title) {
+            continue;
+        }
+
+        let difficulty = Difficulty {
+            bas: float_to_level(line[1]),
+            adv: float_to_level(line[2]),
+            exp: float_to_level(line[3]),
+            mas: float_to_level(line[4]),
+            extra: if line[5] == "0" {
+                None
+            } else {
+                Some(float_to_level(line[5]))
+            },
+        };
+        let mai_difficulty = if line[0] == "0" {
+            MaiDifficulty {
+                st: Some(difficulty.clone()),
+                dx: None,
+            }
+        } else {
+            MaiDifficulty {
+                st: None,
+                dx: Some(difficulty.clone()),
+            }
+        };
+
+        if charts.contains_key(&title) {
+            let entry = charts.get_mut(&title).unwrap();
+
+            let l = &mut entry.intl_lv;
+            if line[0] == "0" {
+                // ST chart
+                match l {
+                    None => {
+                        *l = Some(mai_difficulty);
+                    }
+                    Some(v) => {
+                        assert_eq!(v.st, None);
+                        v.st = Some(difficulty);
+                    }
+                }
+            } else {
+                // DX chart
+                match l {
+                    None => {
+                        *l = Some(mai_difficulty);
+                    }
+                    Some(v) => {
+                        assert_eq!(v.dx, None);
+                        v.dx = Some(difficulty);
+                    }
+                }
+            }
+        } else {
+            println!("{}", &title);
+            charts.insert(
+                title.clone(),
+                MaiInfo {
+                    jp_lv: None,
+                    intl_lv: Some(mai_difficulty),
+                    jp_jacket: None,
+                    title: title,
+                    artist: "TODO".to_string(),
+                },
+            );
+        }
     }
 
     Ok(charts)
