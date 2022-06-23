@@ -2,4 +2,4 @@
 /Cargo.lock
 /deploy.sh
 /Makefile
-/setup-data
+/data
