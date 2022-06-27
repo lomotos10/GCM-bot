@@ -59,12 +59,12 @@ struct MaiInfo {
     st_sheets: Vec<Sheet>,
 }
 
-#[derive(Debug)]
-enum Game {
-    Geki,
-    Chu,
-    Mai,
-}
+// #[derive(Debug)]
+// enum Game {
+//     Geki,
+//     Chu,
+//     Mai,
+// }
 
 fn serdest_to_string(st: &serde_json::Value) -> String {
     if let serde_json::Value::String(s) = st {
@@ -103,13 +103,53 @@ fn get_curl(url: &str) -> String {
     s.to_string()
 }
 
+fn get_title(title: String, aliases: &Aliases) -> Option<String> {
+    let titlem1 = title.to_lowercase();
+    if let Some(a) = aliases.lowercased.get(&titlem1) {
+        return Some(a.to_string());
+    }
+    let title0 = titlem1.split_whitespace().collect::<String>();
+    if let Some(a) = aliases.lowercased_and_unspaced.get(&title0) {
+        return Some(a.to_string());
+    }
+    let title1 = title0
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
+    if let Some(a) = aliases.alphanumeric_only.get(&title1) {
+        return Some(a.to_string());
+    }
+    let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
+    if let Some(a) = aliases.alphanumeric_and_ascii.get(&title2) {
+        return Some(a.to_string());
+    }
+    if let Some(a) = aliases.nicknames.get(&title2) {
+        return Some(a.to_string());
+    }
+    None
+}
+
 /// Get maimai song info
 #[poise::command(slash_command, prefix_command)]
 async fn mai_info(
     ctx: Context<'_>,
-    #[description = "Song title"] title: String,
+    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"] title: String,
     #[description = "Include note info"] notes: Option<bool>,
 ) -> Result<(), Error> {
+    let title = get_title(title, &ctx.data().mai_aliases);
+    if title == None {
+        ctx.send(|f| {
+            f.ephemeral(true).embed(|f| {
+                f.title("TODO")
+                    .description("TODO")
+                    .color(serenity::utils::Color::from_rgb(0, 255, 255))
+            })
+        })
+        .await?;
+        return Ok(());
+    }
+    let title = title.unwrap();
+
     let song = ctx.data().mai_charts.get(&title);
 
     if song == None {
@@ -272,7 +312,10 @@ async fn mai_info(
                         *note = "\n".to_string();
                     }
                 }
-                for (diff, sheet) in izip!(["**BAS**", "**ADV**", "**EXP**", "**MAS**", "**REM**"], &song.dx_sheets) {
+                for (diff, sheet) in izip!(
+                    ["**BAS**", "**ADV**", "**EXP**", "**MAS**", "**REM**"],
+                    &song.dx_sheets
+                ) {
                     idx = format!("{}\n{}", idx, diff);
                     notes[0] = format!("{}\n{}", notes[0], sheet.tap);
                     notes[1] = format!("{}\n{}", notes[1], sheet.hold);
@@ -291,7 +334,10 @@ async fn mai_info(
                         *note = "\n".to_string();
                     }
                 }
-                for (diff, sheet) in izip!(["**BAS**", "**ADV**", "**EXP**", "**MAS**", "**REM**"], &song.st_sheets) {
+                for (diff, sheet) in izip!(
+                    ["**BAS**", "**ADV**", "**EXP**", "**MAS**", "**REM**"],
+                    &song.st_sheets
+                ) {
                     idx = format!("{}\n{}", idx, diff);
                     notes[0] = format!("{}\n{}", notes[0], sheet.tap);
                     notes[1] = format!("{}\n{}", notes[1], sheet.hold);
@@ -320,6 +366,45 @@ async fn mai_info(
         })
     })
     .await?;
+    Ok(())
+}
+
+/// Get maimai song jacket
+#[poise::command(slash_command, prefix_command)]
+async fn mai_jacket(
+    ctx: Context<'_>,
+    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"] title: String,
+) -> Result<(), Error> {
+    let title = get_title(title, &ctx.data().mai_aliases);
+    if title == None {
+        ctx.send(|f| {
+            f.ephemeral(true).embed(|f| {
+                f.title("TODO")
+                    .description("TODO")
+                    .color(serenity::utils::Color::from_rgb(0, 255, 255))
+            })
+        })
+        .await?;
+        return Ok(());
+    }
+    let title = title.unwrap();
+    let jacket = &ctx.data().mai_charts[&title].jp_jacket;
+    // let jacket = format!(
+    //     "***REMOVED***{}",
+    //     jacket
+    // );
+    if let Some(jacket) = jacket {
+        ctx.send(|f| {
+            f.attachment(serenity::AttachmentType::Image(
+                url::Url::parse(&format!(
+                    "***REMOVED***{}",
+                    jacket
+                ))
+                .unwrap(),
+            ))
+        })
+        .await?;
+    }
     Ok(())
 }
 
@@ -628,17 +713,187 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     Ok(charts)
 }
 
+
+/// Print help message
+#[poise::command(slash_command, prefix_command)]
+async fn help(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+let help = "**GCM-bot: Chart info provider for GekiChuMai**
+
+**Usage:**
+Method 1. Slash commands (recommended usage)
+Method 2. @GCM-bot `command-name` `command-arguments`
+
+**Nicknames for songs are supported - try stuff out!**
+
+**Example usage:**
+/mai-info bbb
+@GCM-bot mai-info \"3 seconds until dawn\"
+
+**WIP:** Chunithm and Ongeki support
+
+If you have any bug reports or suggestions, please contact @Lomo#2363 for help!";
+    ctx.say(help)
+    .await?;
+    Ok(())
+}
+
+struct Aliases {
+    lowercased: HashMap<String, String>,
+    lowercased_and_unspaced: HashMap<String, String>,
+    alphanumeric_only: HashMap<String, String>,
+    alphanumeric_and_ascii: HashMap<String, String>,
+    nicknames: HashMap<String, String>,
+}
+
 // User data, which is stored and accessible in all command invocations
 struct Data {
     mai_charts: Box<HashMap<String, MaiInfo>>,
+    mai_aliases: Aliases,
 }
 
+fn set_mai_aliases() -> Result<Aliases, Error> {
+    println!("{}", 'リ'.is_alphanumeric());
+    let mut lowercased = HashMap::new();
+    let mut lowercased_and_unspaced = HashMap::new();
+    let mut alphanumeric_only = HashMap::new();
+    let mut alphanumeric_and_ascii = HashMap::new();
+    let mut nicknames = HashMap::new();
+    let file = File::open("data/aliases/en/maimai.tsv")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let split = line.split('\t');
+        let split = split.collect::<Vec<_>>();
+        let title = split[0];
+
+        let namem1 = title.clone().to_lowercase();
+        let a = lowercased.insert(namem1.to_string(), title.to_string());
+        if let Some(a) = a {
+            println!(
+                "Alias-1 {} (for {}) shadowed by same alias-1 for {}",
+                namem1, a, title
+            );
+        }
+
+        let name0 = title
+            .clone()
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<String>();
+        let a = lowercased_and_unspaced.insert(name0.to_string(), title.to_string());
+        if let Some(a) = a {
+            println!(
+                "Alias0 {} (for {}) shadowed by same alias0 for {}",
+                name0, a, title
+            );
+        }
+
+        let name1 = name0
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>();
+        if name1 != "" {
+            let a = alphanumeric_only.insert(name1.to_string(), title.to_string());
+            if let Some(a) = a {
+                println!(
+                    "Alias1 {} (for {}) shadowed by same alias1 for {}",
+                    name1, a, title
+                );
+            }
+        }
+
+        let name2 = name1.chars().filter(|c| c.is_ascii()).collect::<String>();
+        if name2 != "" {
+            let a = alphanumeric_and_ascii.insert(name2.to_string(), title.to_string());
+            if let Some(a) = a {
+                println!(
+                    "Alias2 {} (for {}) shadowed by same alias2 for {}",
+                    name2, a, title
+                );
+            }
+        }
+
+        let nickname_slice = &split[1..];
+        for nickname in nickname_slice {
+            let nick = nickname
+                .clone()
+                .to_lowercase()
+                .split_whitespace()
+                .collect::<String>();
+            let nick = nick
+                .chars()
+                .filter(|c| c.is_alphanumeric() && c.is_ascii())
+                .collect::<String>();
+            let a = nicknames.insert(nick.to_string(), title.to_string());
+            if let Some(a) = a {
+                println!(
+                    "Alias3 {} (for {}) shadowed by same alias3 for {}",
+                    nick, a, title
+                );
+            }
+        }
+    }
+
+    // I fucking hate myself but I don't have the energy to fix this
+    for (name0, title) in lowercased_and_unspaced.iter() {
+        if lowercased.contains_key(name0) {
+            // Don't delete this; it's for actual debugging!
+            if title != &lowercased_and_unspaced[name0] {
+                println!(
+                    "Alias0 {} (for {}) shadowed by same alias-1 for {}",
+                    name0, title, lowercased_and_unspaced[name0]
+                );
+            }
+        }
+    }
+    for (name1, title) in alphanumeric_only.iter() {
+        if lowercased_and_unspaced.contains_key(name1) {
+            // Don't delete this; it's for actual debugging!
+            if title != &lowercased_and_unspaced[name1] {
+                println!(
+                    "Alias1 {} (for {}) shadowed by same alias0 for {}",
+                    name1, title, lowercased_and_unspaced[name1]
+                );
+            }
+        }
+    }
+    for (name2, title) in alphanumeric_and_ascii.iter() {
+        if alphanumeric_only.contains_key(name2) {
+            // Don't delete this; it's for actual debugging!
+            if title != &alphanumeric_only[name2] {
+                println!(
+                    "Alias2 {} (for {}) shadowed by same alias1 for {}",
+                    name2, title, alphanumeric_only[name2]
+                );
+            }
+        }
+    }
+    for (nick, title) in nicknames.iter() {
+        if alphanumeric_and_ascii.contains_key(nick) {
+            // Don't delete this; it's for actual debugging!
+            if title != &alphanumeric_and_ascii[nick] {
+                println!(
+                    "Alias3 {} (for {}) shadowed by same alias2 for {}",
+                    nick, title, alphanumeric_and_ascii[nick]
+                );
+            }
+        }
+    }
+
+    Ok(Aliases {
+        lowercased,
+        lowercased_and_unspaced,
+        alphanumeric_only,
+        alphanumeric_and_ascii,
+        nicknames,
+    })
+}
 #[tokio::main]
 async fn main() {
-    // set_mai_charts();
     let framework = poise::Framework::build()
         .options(poise::FrameworkOptions {
-            commands: vec![mai_info(), register()],
+            commands: vec![mai_info(), mai_jacket(), help(), register()],
             ..Default::default()
         })
         .token(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
@@ -647,6 +902,7 @@ async fn main() {
             Box::pin(async move {
                 Ok(Data {
                     mai_charts: Box::new(set_mai_charts()?),
+                    mai_aliases: set_mai_aliases()?,
                 })
             })
         });
