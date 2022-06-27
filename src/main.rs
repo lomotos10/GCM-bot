@@ -328,10 +328,7 @@ Did you mean **{}** (for **{}**)?",
                 .description(description)
                 .color(serenity::utils::Color::from_rgb(0, 255, 255));
             if let Some(jacket) = &song.jp_jacket {
-                f = f.image(format!(
-                    "***REMOVED***{}",
-                    jacket
-                ));
+                f = f.image(format!("{}{}", ctx.data().mai_jacket_prefix, jacket));
             }
 
             if notes == Some(true) && (!song.dx_sheets.is_empty() || !song.st_sheets.is_empty()) {
@@ -423,17 +420,10 @@ Did you mean **{}** (for **{}**)?",
     }
     let title = actual_title.unwrap();
     let jacket = &ctx.data().mai_charts[&title].jp_jacket;
-    // let jacket = format!(
-    //     "***REMOVED***{}",
-    //     jacket
-    // );
     if let Some(jacket) = jacket {
         ctx.send(|f| {
             f.attachment(serenity::AttachmentType::Image(
-                url::Url::parse(&format!(
-                    "***REMOVED***{}",
-                    jacket
-                ))
+                url::Url::parse(&format!("{}{}", ctx.data().mai_jacket_prefix, jacket))
                 .unwrap(),
             ))
         })
@@ -645,10 +635,10 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         }
     }
 
-    // Get zeta DB
-    let zeta = fs::read_to_string("data/zeta.txt")?;
-    let zeta = zeta.trim();
-    let s = get_curl(zeta);
+    // Get info DB
+    let info = fs::read_to_string("data/maimai-info.txt")?;
+    let info = info.trim();
+    let s = get_curl(info);
 
     // Parse the string of data into serde_json::Value.
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
@@ -781,6 +771,7 @@ struct Aliases {
 struct Data {
     mai_charts: Box<HashMap<String, MaiInfo>>,
     mai_aliases: Aliases,
+    mai_jacket_prefix: String,
 }
 
 fn set_mai_aliases() -> Result<Aliases, Error> {
@@ -919,6 +910,7 @@ fn set_mai_aliases() -> Result<Aliases, Error> {
         nicknames,
     })
 }
+
 #[tokio::main]
 async fn main() {
     let framework = poise::Framework::build()
@@ -933,6 +925,7 @@ async fn main() {
                 Ok(Data {
                     mai_charts: Box::new(set_mai_charts()?),
                     mai_aliases: set_mai_aliases()?,
+                    mai_jacket_prefix: fs::read_to_string("data/maimai-jacket-prefix.txt")?,
                 })
             })
         });
