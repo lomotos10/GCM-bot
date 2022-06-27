@@ -1,9 +1,11 @@
 use itertools::izip;
 use lazy_static::lazy_static;
+use ordered_float::OrderedFloat;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use strsim::jaro_winkler;
 
 use poise::serenity_prelude as serenity;
 
@@ -103,7 +105,7 @@ fn get_curl(url: &str) -> String {
     s.to_string()
 }
 
-fn get_title(title: String, aliases: &Aliases) -> Option<String> {
+fn get_title(title: &String, aliases: &Aliases) -> Option<String> {
     let titlem1 = title.to_lowercase();
     if let Some(a) = aliases.lowercased.get(&titlem1) {
         return Some(a.to_string());
@@ -129,26 +131,55 @@ fn get_title(title: String, aliases: &Aliases) -> Option<String> {
     None
 }
 
+fn get_closest_title(title: &String, aliases: &Aliases) -> (String, String) {
+    let mut candidates = vec![];
+
+    let f = |x: &HashMap<String, String>, title: &String| {
+        let a = x
+            .iter()
+            .map(|x| (x, OrderedFloat(jaro_winkler(x.0, &title))))
+            .max_by_key(|x| x.1)
+            .unwrap();
+        ((a.0 .0.clone(), a.0 .1.clone()), a.1)
+    };
+
+    let titlem1 = title.to_lowercase();
+    candidates.push(f(&aliases.lowercased, &titlem1));
+    let title0 = titlem1.split_whitespace().collect::<String>();
+    candidates.push(f(&aliases.lowercased_and_unspaced, &title0));
+    let title1 = title0
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
+    candidates.push(f(&aliases.alphanumeric_only, &title1));
+    let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
+    candidates.push(f(&aliases.alphanumeric_and_ascii, &title2));
+    candidates.push(f(&aliases.nicknames, &title2));
+
+    let a = &candidates.iter().max_by_key(|x| (*x).1).unwrap().0;
+    (a.0.clone(), a.1.clone())
+}
+
 /// Get maimai song info
 #[poise::command(slash_command, prefix_command)]
 async fn mai_info(
     ctx: Context<'_>,
-    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"] title: String,
+    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
+    title: String,
     #[description = "Include note info"] notes: Option<bool>,
 ) -> Result<(), Error> {
-    let title = get_title(title, &ctx.data().mai_aliases);
-    if title == None {
-        ctx.send(|f| {
-            f.ephemeral(true).embed(|f| {
-                f.title("TODO")
-                    .description("TODO")
-                    .color(serenity::utils::Color::from_rgb(0, 255, 255))
-            })
-        })
-        .await?;
+    let actual_title = get_title(&title, &ctx.data().mai_aliases);
+    if actual_title == None {
+        let closest = get_closest_title(&title, &ctx.data().mai_aliases);
+        let reply = format!(
+            "I couldn't find the results for **{}**;
+Did you mean **{}** (for **{}**)?",
+            title, closest.0, closest.1
+        );
+        ctx.send(|f| f.ephemeral(true).content(reply)).await?;
         return Ok(());
     }
-    let title = title.unwrap();
+    let title = actual_title.unwrap();
 
     let song = ctx.data().mai_charts.get(&title);
 
@@ -289,7 +320,11 @@ async fn mai_info(
     ctx.send(|f| {
         f.embed(|f| {
             let mut f = f
-                .title(&title)
+                .title(if title == "Link (maimai)" {
+                    "Link"
+                } else {
+                    &title
+                })
                 .description(description)
                 .color(serenity::utils::Color::from_rgb(0, 255, 255));
             if let Some(jacket) = &song.jp_jacket {
@@ -297,7 +332,6 @@ async fn mai_info(
                     "***REMOVED***{}",
                     jacket
                 ));
-                // .thumbnail("https://info-maimai.sega.jp/wp-content/uploads/2022/05/88cc6aab008536ed331ce614d377607b.jpg");
             }
 
             if notes == Some(true) && (!song.dx_sheets.is_empty() || !song.st_sheets.is_empty()) {
@@ -373,21 +407,21 @@ async fn mai_info(
 #[poise::command(slash_command, prefix_command)]
 async fn mai_jacket(
     ctx: Context<'_>,
-    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"] title: String,
+    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
+    title: String,
 ) -> Result<(), Error> {
-    let title = get_title(title, &ctx.data().mai_aliases);
-    if title == None {
-        ctx.send(|f| {
-            f.ephemeral(true).embed(|f| {
-                f.title("TODO")
-                    .description("TODO")
-                    .color(serenity::utils::Color::from_rgb(0, 255, 255))
-            })
-        })
-        .await?;
+    let actual_title = get_title(&title, &ctx.data().mai_aliases);
+    if actual_title == None {
+        let closest = get_closest_title(&title, &ctx.data().mai_aliases);
+        let reply = format!(
+            "We couldn't find the results for **{}**;
+Did you mean **{}** (for **{}**)?",
+            title, closest.0, closest.1
+        );
+        ctx.send(|f| f.ephemeral(true).content(reply)).await?;
         return Ok(());
     }
-    let title = title.unwrap();
+    let title = actual_title.unwrap();
     let jacket = &ctx.data().mai_charts[&title].jp_jacket;
     // let jacket = format!(
     //     "***REMOVED***{}",
@@ -713,13 +747,10 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     Ok(charts)
 }
 
-
 /// Print help message
 #[poise::command(slash_command, prefix_command)]
-async fn help(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
-let help = "**GCM-bot: Chart info provider for GekiChuMai**
+async fn help(ctx: Context<'_>) -> Result<(), Error> {
+    let help = "**GCM-bot: Chart info provider for GekiChuMai**
 
 **Usage:**
 Method 1. Slash commands (recommended usage)
@@ -734,8 +765,7 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 **WIP:** Chunithm and Ongeki support
 
 If you have any bug reports or suggestions, please contact @Lomo#2363 for help!";
-    ctx.say(help)
-    .await?;
+    ctx.say(help).await?;
     Ok(())
 }
 
