@@ -732,6 +732,12 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         r.bpm = bpm;
         r.dx_sheets = dx_sheet_data;
         r.st_sheets = st_sheet_data;
+
+        if r.jp_lv == None {
+            if let Some(artist) = song.get("artist") {
+                r.artist = serdest_to_string(artist);
+            }
+        }
     }
 
     Ok(charts)
