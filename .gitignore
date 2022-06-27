@@ -2,4 +2,7 @@
 /Cargo.lock
 /deploy.sh
 /Makefile
-/data
+/data/*.txt
+/data/*.js
+!/data/jp_del.txt
+/*.sh
