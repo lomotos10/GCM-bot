@@ -105,7 +105,7 @@ fn get_curl(url: &str) -> String {
     s.to_string()
 }
 
-fn get_title(title: &String, aliases: &Aliases) -> Option<String> {
+fn get_title(title: &str, aliases: &Aliases) -> Option<String> {
     let titlem1 = title.to_lowercase();
     if let Some(a) = aliases.lowercased.get(&titlem1) {
         return Some(a.to_string());
@@ -131,13 +131,13 @@ fn get_title(title: &String, aliases: &Aliases) -> Option<String> {
     None
 }
 
-fn get_closest_title(title: &String, aliases: &Aliases) -> (String, String) {
+fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
     let mut candidates = vec![];
 
     let f = |x: &HashMap<String, String>, title: &String| {
         let a = x
             .iter()
-            .map(|x| (x, OrderedFloat(jaro_winkler(x.0, &title))))
+            .map(|x| (x, OrderedFloat(jaro_winkler(x.0, title))))
             .max_by_key(|x| x.1)
             .unwrap();
         ((a.0 .0.clone(), a.0 .1.clone()), a.1)
@@ -423,8 +423,7 @@ Did you mean **{}** (for **{}**)?",
     if let Some(jacket) = jacket {
         ctx.send(|f| {
             f.attachment(serenity::AttachmentType::Image(
-                url::Url::parse(&format!("{}{}", ctx.data().mai_jacket_prefix, jacket))
-                .unwrap(),
+                url::Url::parse(&format!("{}{}", ctx.data().mai_jacket_prefix, jacket)).unwrap(),
             ))
         })
         .await?;
@@ -551,7 +550,7 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
 
     for line in reader.lines() {
         let line = line?;
-        let line = line.split("\t").collect::<Vec<_>>();
+        let line = line.split('\t').collect::<Vec<_>>();
         assert_eq!(line.len(), 7);
         let title = SONG_REPLACEMENT
             .get(line[6])
@@ -625,7 +624,7 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     jp_lv: None,
                     intl_lv: Some(mai_difficulty),
                     jp_jacket: None,
-                    title: title,
+                    title,
                     artist: "TODO".to_string(),
                     bpm: None,
                     dx_sheets: vec![],
@@ -724,7 +723,7 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         let bpm = if bpm == Some(&serde_json::Value::Null) {
             None
         } else {
-            bpm.map(|v| serdest_to_usize(v))
+            bpm.map(serdest_to_usize)
         };
 
         let r = charts.get_mut(&title).unwrap();
@@ -775,7 +774,7 @@ struct Aliases {
 
 // User data, which is stored and accessible in all command invocations
 struct Data {
-    mai_charts: Box<HashMap<String, MaiInfo>>,
+    mai_charts: HashMap<String, MaiInfo>,
     mai_aliases: Aliases,
     mai_jacket_prefix: String,
 }
@@ -794,7 +793,7 @@ fn set_mai_aliases() -> Result<Aliases, Error> {
         let split = split.collect::<Vec<_>>();
         let title = split[0];
 
-        let namem1 = title.clone().to_lowercase();
+        let namem1 = title.to_lowercase();
         let a = lowercased.insert(namem1.to_string(), title.to_string());
         if let Some(a) = a {
             println!(
@@ -803,11 +802,7 @@ fn set_mai_aliases() -> Result<Aliases, Error> {
             );
         }
 
-        let name0 = title
-            .clone()
-            .to_lowercase()
-            .split_whitespace()
-            .collect::<String>();
+        let name0 = title.to_lowercase().split_whitespace().collect::<String>();
         let a = lowercased_and_unspaced.insert(name0.to_string(), title.to_string());
         if let Some(a) = a {
             println!(
@@ -820,7 +815,7 @@ fn set_mai_aliases() -> Result<Aliases, Error> {
             .chars()
             .filter(|c| c.is_alphanumeric())
             .collect::<String>();
-        if name1 != "" {
+        if !name1.is_empty() {
             let a = alphanumeric_only.insert(name1.to_string(), title.to_string());
             if let Some(a) = a {
                 println!(
@@ -831,7 +826,7 @@ fn set_mai_aliases() -> Result<Aliases, Error> {
         }
 
         let name2 = name1.chars().filter(|c| c.is_ascii()).collect::<String>();
-        if name2 != "" {
+        if !name2.is_empty() {
             let a = alphanumeric_and_ascii.insert(name2.to_string(), title.to_string());
             if let Some(a) = a {
                 println!(
@@ -844,7 +839,6 @@ fn set_mai_aliases() -> Result<Aliases, Error> {
         let nickname_slice = &split[1..];
         for nickname in nickname_slice {
             let nick = nickname
-                .clone()
                 .to_lowercase()
                 .split_whitespace()
                 .collect::<String>();
@@ -929,7 +923,7 @@ async fn main() {
         .user_data_setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 Ok(Data {
-                    mai_charts: Box::new(set_mai_charts()?),
+                    mai_charts: set_mai_charts()?,
                     mai_aliases: set_mai_aliases()?,
                     mai_jacket_prefix: fs::read_to_string("data/maimai-jacket-prefix.txt")?,
                 })
