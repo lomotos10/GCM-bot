@@ -4,5 +4,7 @@
 /Makefile
 /data/*.txt
 /data/*.js
-!/data/jp_del.txt
+!/data/jp-del.txt
+!/data/intl-del.txt
 /*.sh
+/*.csv

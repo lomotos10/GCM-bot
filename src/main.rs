@@ -1,4 +1,3 @@
-use itertools::izip;
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
 use std::collections::{HashMap, HashSet};
@@ -165,8 +164,8 @@ fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
 async fn mai_info(
     ctx: Context<'_>,
     #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
+    #[rest]
     title: String,
-    #[description = "Include note info"] notes: Option<bool>,
 ) -> Result<(), Error> {
     println!("1");
     let actual_title = get_title(&title, &ctx.data().mai_aliases);
@@ -330,71 +329,9 @@ Did you mean **{}** (for **{}**)?",
                 .description(description)
                 .color(serenity::utils::Color::from_rgb(0, 255, 255));
             if let Some(jacket) = &song.jp_jacket {
-                f = f.image(format!("{}{}", ctx.data().mai_jacket_prefix, jacket));
+                f = f.thumbnail(format!("{}{}", ctx.data().mai_jacket_prefix, jacket));
             }
 
-            if notes == Some(true) && (!song.dx_sheets.is_empty() || !song.st_sheets.is_empty()) {
-                let mut idx = "".to_string();
-                let mut notes = vec![];
-                for _ in 0..6 {
-                    notes.push("".to_string());
-                }
-                if !song.dx_sheets.is_empty() && !song.st_sheets.is_empty() {
-                    idx = "DX".to_string();
-                    for note in &mut notes {
-                        *note = "\n".to_string();
-                    }
-                }
-                for (diff, sheet) in izip!(
-                    ["**BAS**", "**ADV**", "**EXP**", "**MAS**", "**REM**"],
-                    &song.dx_sheets
-                ) {
-                    idx = format!("{}\n{}", idx, diff);
-                    notes[0] = format!("{}\n{}", notes[0], sheet.tap);
-                    notes[1] = format!("{}\n{}", notes[1], sheet.hold);
-                    notes[2] = format!("{}\n{}", notes[2], sheet.slide);
-                    notes[3] = format!("{}\n{}", notes[3], sheet.touch);
-                    notes[4] = format!("{}\n{}", notes[4], sheet.brk);
-                    notes[5] = format!(
-                        "{}\n{}",
-                        notes[5],
-                        sheet.tap + sheet.hold + sheet.slide + sheet.touch + sheet.brk
-                    );
-                }
-                if !song.dx_sheets.is_empty() && !song.st_sheets.is_empty() {
-                    idx = "ST".to_string();
-                    for note in &mut notes {
-                        *note = "\n".to_string();
-                    }
-                }
-                for (diff, sheet) in izip!(
-                    ["**BAS**", "**ADV**", "**EXP**", "**MAS**", "**REM**"],
-                    &song.st_sheets
-                ) {
-                    idx = format!("{}\n{}", idx, diff);
-                    notes[0] = format!("{}\n{}", notes[0], sheet.tap);
-                    notes[1] = format!("{}\n{}", notes[1], sheet.hold);
-                    notes[2] = format!("{}\n{}", notes[2], sheet.slide);
-                    notes[3] = format!("{}\n", sheet.touch);
-                    notes[4] = format!("{}\n{}", notes[4], sheet.brk);
-                    notes[5] = format!(
-                        "{}\n{}",
-                        notes[5],
-                        sheet.tap + sheet.hold + sheet.slide + sheet.touch + sheet.brk
-                    );
-                }
-                f = f
-                    .field("ㅤ", idx, true)
-                    .field("TAP", &notes[0], true)
-                    .field("HLD", &notes[1], true)
-                    .field("SLD", &notes[2], true);
-                if !song.dx_sheets.is_empty() {
-                    f = f.field("TCH", &notes[3], true);
-                }
-                f = f
-                    .field("BRK", &notes[4], true)
-                    .field("TOT", &notes[5], true);
-            }
             f
         })
     })
@@ -407,6 +344,7 @@ Did you mean **{}** (for **{}**)?",
 async fn mai_jacket(
     ctx: Context<'_>,
     #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
+    #[rest]
     title: String,
 ) -> Result<(), Error> {
     let actual_title = get_title(&title, &ctx.data().mai_aliases);
@@ -541,10 +479,16 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     // Get intl difficulty.
     // deleted songs
     let mut jp_del_songs = HashSet::new();
-    let file = File::open("data/jp_del.txt")?;
+    let file = File::open("data/jp-del.txt")?;
     let lines = BufReader::new(file).lines();
     for line in lines.flatten() {
         jp_del_songs.insert(line);
+    }
+    let mut intl_del_songs = HashSet::new();
+    let file = File::open("data/intl-del.txt")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        intl_del_songs.insert(line);
     }
 
     let file = File::open("in_lv.csv")?;
@@ -564,7 +508,7 @@ fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         } else {
             title
         };
-        if jp_del_songs.contains(&title) {
+        if jp_del_songs.contains(&title) || intl_del_songs.contains(&title) {
             continue;
         }
 
@@ -761,7 +705,8 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 
 **WIP:** Chunithm and Ongeki support
 
-If you have any bug reports or suggestions, please contact @Lomo#2363 for help!";
+If you have any bug reports or suggestions, please contact @Lomo#2363 for help,
+or send an issue or PR to https://github.com/lomotos10/GCM-bot";
     ctx.say(help).await?;
     Ok(())
 }
