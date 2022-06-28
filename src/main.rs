@@ -1,17 +1,10 @@
 use poise::serenity_prelude as serenity;
 use std::fs;
 
-mod util;
-use util::*;
+mod utils;
+use utils::*;
 mod maimai;
 use maimai::*;
-
-// #[derive(Debug)]
-// enum Game {
-//     Geki,
-//     Chu,
-//     Mai,
-// }
 
 /// Print help message
 #[poise::command(slash_command, prefix_command)]

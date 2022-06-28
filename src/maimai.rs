@@ -7,7 +7,7 @@ use std::{
 use lazy_static::lazy_static;
 use poise::serenity_prelude as serenity;
 
-use crate::util::*;
+use crate::utils::*;
 
 lazy_static! {
     static ref SONG_REPLACEMENT: HashMap<String, String> = {
