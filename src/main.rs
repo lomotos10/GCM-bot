@@ -161,14 +161,16 @@ fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
 }
 
 /// Get maimai song info
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command, prefix_command, rename="mai-info", aliases("maiinfo", "mai_info"))]
 async fn mai_info(
     ctx: Context<'_>,
     #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
     title: String,
     #[description = "Include note info"] notes: Option<bool>,
 ) -> Result<(), Error> {
+    println!("1");
     let actual_title = get_title(&title, &ctx.data().mai_aliases);
+    println!("{:?}", actual_title);
     if actual_title == None {
         let closest = get_closest_title(&title, &ctx.data().mai_aliases);
         let reply = format!(
@@ -401,7 +403,7 @@ Did you mean **{}** (for **{}**)?",
 }
 
 /// Get maimai song jacket
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command, prefix_command, rename="mai-jacket", aliases("maijacket", "mai_jacket"))]
 async fn mai_jacket(
     ctx: Context<'_>,
     #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
