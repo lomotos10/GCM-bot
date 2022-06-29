@@ -1,5 +1,7 @@
 # GCM-bot: A chart info bot for GekiChuMai! (only maimai for now)
 
+Invite link: https://discord.com/api/oauth2/authorize?client_id=986651489529397279&permissions=2147502080&scope=applications.commands%20bot
+
 ## Usage
 
 Method 1. Slash commands (recommended usage)
@@ -36,6 +38,5 @@ Here there are three nicknames each separated by a tab.
 
 - [ ] Add KR 🇰🇷
 - [ ] Remove hard panics and unwraps
-- [ ] Refactor
 - [ ] Add Chuni
 - [ ] Add Ongeki
