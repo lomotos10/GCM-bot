@@ -54,5 +54,6 @@ async fn main() {
             })
         });
 
+    println!("Starting run:");
     framework.run().await.unwrap();
 }

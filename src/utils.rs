@@ -153,6 +153,7 @@ pub struct MaiInfo {
     pub bpm: Option<usize>,
     pub dx_sheets: Vec<MaiSheet>,
     pub st_sheets: Vec<MaiSheet>,
+    pub version: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

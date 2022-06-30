@@ -5,7 +5,10 @@ use std::{
 };
 
 use lazy_static::lazy_static;
-use poise::serenity_prelude as serenity;
+use poise::{
+    serenity_prelude::{self as serenity, CreateActionRow, CreateButton, InteractionResponseType},
+    ReplyHandle,
+};
 
 use crate::utils::*;
 
@@ -34,9 +37,7 @@ pub async fn mai_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    println!("1");
     let actual_title = get_title(&title, &ctx.data().mai_aliases);
-    println!("{:?}", actual_title);
     if actual_title == None {
         let closest = get_closest_title(&title, &ctx.data().mai_aliases);
         let reply = format!(
@@ -57,6 +58,9 @@ Did you mean **{}** (for **{}**)?",
     let song = song.unwrap();
 
     let mut description = format!("**Artist:** {}", song.artist);
+    if let Some(version) = &song.version {
+        description = format!("{}\n**Version:** {}", description, version);
+    }
     if let Some(bpm) = song.bpm {
         description = format!("{}\n**BPM:** {}", description, bpm);
     }
@@ -326,6 +330,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 bpm: None,
                 dx_sheets: vec![],
                 st_sheets: vec![],
+                version: None,
             },
         );
         assert_eq!(r, None);
@@ -430,6 +435,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     bpm: None,
                     dx_sheets: vec![],
                     st_sheets: vec![],
+                    version: None,
                 },
             );
         }
@@ -526,12 +532,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         } else {
             bpm.map(serdest_to_usize)
         };
+        let version = song.get("version");
+        let version = if version == Some(&serde_json::Value::Null) {
+            None
+        } else {
+            version.map(serdest_to_string)
+        };
 
         let r = charts.get_mut(&title).unwrap();
         r.jp_jacket = Some(jp_jacket);
         r.bpm = bpm;
         r.dx_sheets = dx_sheet_data;
         r.st_sheets = st_sheet_data;
+        r.version = version;
 
         if r.jp_lv == None {
             if let Some(artist) = song.get("artist") {
