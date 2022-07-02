@@ -1,5 +1,9 @@
 use poise::serenity_prelude as serenity;
-use std::fs;
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::{BufRead, BufReader},
+};
 
 mod utils;
 use utils::*;
@@ -46,10 +50,19 @@ async fn main() {
         .intents(serenity::GatewayIntents::non_privileged())
         .user_data_setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
+                let mai_charts = set_mai_charts()?;
+                let mai_aliases = set_mai_aliases(&mai_charts)?;
+
                 Ok(Data {
-                    mai_charts: set_mai_charts()?,
-                    mai_aliases: set_mai_aliases()?,
+                    mai_charts,
+                    mai_aliases,
                     mai_jacket_prefix: fs::read_to_string("data/maimai-jacket-prefix.txt")?,
+
+                    cooldown_server_ids: {
+                        let file = File::open("in_lv.csv")?;
+                        BufReader::new(file).lines().map(|l| l.unwrap()).collect()
+                    },
+                    user_timestamp: HashMap::new(),
                 })
             })
         });

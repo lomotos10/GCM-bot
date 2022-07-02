@@ -5,10 +5,7 @@ use std::{
 };
 
 use lazy_static::lazy_static;
-use poise::{
-    serenity_prelude::{self as serenity, CreateActionRow, CreateButton, InteractionResponseType},
-    ReplyHandle,
-};
+use poise::serenity_prelude::{self as serenity};
 
 use crate::utils::*;
 
@@ -57,7 +54,7 @@ Did you mean **{}** (for **{}**)?",
     }
     let song = song.unwrap();
 
-    let mut description = format!("**Artist:** {}", song.artist);
+    let mut description = format!("**Artist:** {}", song.artist.replace("*", "\\*"));
     if let Some(version) = &song.version {
         description = format!("{}\n**Version:** {}", description, version);
     }
@@ -80,36 +77,12 @@ Did you mean **{}** (for **{}**)?",
     };
 
     let jp_dx_txt = if jp_dx {
-        let jp_dx_lv = jp_lv.as_ref().unwrap().dx.as_ref().unwrap();
-        format!(
-            "BAS **{}**/ADV **{}**/EXP **{}**/MAS **{}**{}",
-            jp_dx_lv.bas,
-            jp_dx_lv.adv,
-            jp_dx_lv.exp,
-            jp_dx_lv.mas,
-            if let Some(rem) = &jp_dx_lv.extra {
-                format!("/REM **{}**", rem)
-            } else {
-                "".to_string()
-            }
-        )
+        level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap())
     } else {
         "**Unreleased**".to_string()
     };
     let in_dx_txt = if in_dx {
-        let in_dx_lv = in_lv.as_ref().unwrap().dx.as_ref().unwrap();
-        format!(
-            "BAS **{}**/ADV **{}**/EXP **{}**/MAS **{}**{}",
-            in_dx_lv.bas,
-            in_dx_lv.adv,
-            in_dx_lv.exp,
-            in_dx_lv.mas,
-            if let Some(rem) = &in_dx_lv.extra {
-                format!("/REM **{}**", rem)
-            } else {
-                "".to_string()
-            }
-        )
+        level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap())
     } else {
         "**Unreleased**".to_string()
     };
@@ -135,36 +108,12 @@ Did you mean **{}** (for **{}**)?",
     };
 
     let jp_st_txt = if jp_st {
-        let jp_st_lv = jp_lv.as_ref().unwrap().st.as_ref().unwrap();
-        format!(
-            "BAS **{}**/ADV **{}**/EXP **{}**/MAS **{}**{}",
-            jp_st_lv.bas,
-            jp_st_lv.adv,
-            jp_st_lv.exp,
-            jp_st_lv.mas,
-            if let Some(rem) = &jp_st_lv.extra {
-                format!("/REM **{}**", rem)
-            } else {
-                "".to_string()
-            }
-        )
+        level_description(jp_lv.as_ref().unwrap().st.as_ref().unwrap())
     } else {
         "**Unreleased**".to_string()
     };
     let in_st_txt = if in_st {
-        let in_st_lv = in_lv.as_ref().unwrap().st.as_ref().unwrap();
-        format!(
-            "BAS **{}**/ADV **{}**/EXP **{}**/MAS **{}**{}",
-            in_st_lv.bas,
-            in_st_lv.adv,
-            in_st_lv.exp,
-            in_st_lv.mas,
-            if let Some(rem) = &in_st_lv.extra {
-                format!("/REM **{}**", rem)
-            } else {
-                "".to_string()
-            }
-        )
+        level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap())
     } else {
         "**Unreleased**".to_string()
     };
@@ -192,11 +141,14 @@ Did you mean **{}** (for **{}**)?",
     ctx.send(|f| {
         f.embed(|f| {
             let mut f = f
-                .title(if title == "Link (maimai)" {
-                    "Link"
-                } else {
-                    &title
-                })
+                .title(
+                    if title == "Link (maimai)" {
+                        "Link"
+                    } else {
+                        &title
+                    }
+                    .replace("*", "\\*"),
+                )
                 .description(description)
                 .color(serenity::utils::Color::from_rgb(0, 255, 255));
             if let Some(jacket) = &song.jp_jacket {
@@ -208,6 +160,26 @@ Did you mean **{}** (for **{}**)?",
     })
     .await?;
     Ok(())
+}
+
+fn level_description(lv: &Difficulty) -> String {
+    format!(
+        // "BAS **{}{}**/ADV **{}{}**/EXP **{}{}**/MAS **{}{}**{}",
+        "B **{}**{} / A **{}**{} / E **{}**{} / M **{}**{}{}",
+        lv.bas,
+        constant_to_string(lv.bas_c),
+        lv.adv,
+        constant_to_string(lv.adv_c),
+        lv.exp,
+        constant_to_string(lv.exp_c),
+        lv.mas,
+        constant_to_string(lv.mas_c),
+        if let Some(rem) = &lv.extra {
+            format!(" / R **{}**{}", rem, constant_to_string(lv.extra_c))
+        } else {
+            "".to_string()
+        }
+    )
 }
 
 /// Get maimai song jacket
@@ -294,6 +266,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 } else {
                     None
                 },
+                ..Default::default()
             })
         } else {
             None
@@ -309,6 +282,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 } else {
                     None
                 },
+                ..Default::default()
             })
         } else {
             None
@@ -374,13 +348,22 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
 
         let difficulty = Difficulty {
             bas: float_to_level(line[1]),
+            bas_c: float_to_constant(line[1]),
             adv: float_to_level(line[2]),
+            adv_c: float_to_constant(line[2]),
             exp: float_to_level(line[3]),
+            exp_c: float_to_constant(line[3]),
             mas: float_to_level(line[4]),
+            mas_c: float_to_constant(line[4]),
             extra: if line[5] == "0" {
                 None
             } else {
                 Some(float_to_level(line[5]))
+            },
+            extra_c: if line[5] == "0" {
+                None
+            } else {
+                float_to_constant(line[5])
             },
         };
         let mai_difficulty = if line[0] == "0" {
@@ -441,6 +424,92 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         }
     }
 
+    // Get jp constants
+    let file = File::open("jp_lv.csv")?;
+    let reader = BufReader::new(file);
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(line.len(), 7);
+        let title = SONG_REPLACEMENT
+            .get(line[6])
+            .unwrap_or(&line[6].to_string())
+            .to_string();
+        // Edge case handling for duplicate title
+        let title = if title == "Link" && line[4] == "-12" {
+            "Link (maimai)".to_string()
+        } else {
+            title
+        };
+        if jp_del_songs.contains(&title) {
+            continue;
+        }
+
+        let difficulty = Difficulty {
+            bas: float_to_level(line[1]),
+            bas_c: float_to_constant(line[1]),
+            adv: float_to_level(line[2]),
+            adv_c: float_to_constant(line[2]),
+            exp: float_to_level(line[3]),
+            exp_c: float_to_constant(line[3]),
+            mas: float_to_level(line[4]),
+            mas_c: float_to_constant(line[4]),
+            extra: if line[5] == "0" {
+                None
+            } else {
+                Some(float_to_level(line[5]))
+            },
+            extra_c: if line[5] == "0" {
+                None
+            } else {
+                float_to_constant(line[5])
+            },
+        };
+        let mai_difficulty = if line[0] == "0" {
+            MaiDifficulty {
+                st: Some(difficulty.clone()),
+                dx: None,
+            }
+        } else {
+            MaiDifficulty {
+                st: None,
+                dx: Some(difficulty.clone()),
+            }
+        };
+
+        if charts.contains_key(&title) {
+            let entry = charts.get_mut(&title).unwrap();
+
+            let l = &mut entry.jp_lv;
+            if line[0] == "0" {
+                // ST chart
+                match l {
+                    None => {
+                        *l = Some(mai_difficulty);
+                    }
+                    Some(v) => {
+                        // assert_eq!(v.st, None);
+                        v.st = Some(difficulty);
+                    }
+                }
+            } else {
+                // DX chart
+                match l {
+                    None => {
+                        *l = Some(mai_difficulty);
+                    }
+                    Some(v) => {
+                        // assert_eq!(v.dx, None);
+                        v.dx = Some(difficulty);
+                    }
+                }
+            }
+        } else {
+            panic!("Sus");
+        }
+    }
+
     // Get info DB
     let info = fs::read_to_string("data/maimai-info.txt")?;
     let info = info.trim();
@@ -488,8 +557,10 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         };
         let mut st_sheet_data = vec![];
         let mut dx_sheet_data = vec![];
+        let mut st_constants = vec![];
+        let mut dx_constants = vec![];
         for sheet in sheets {
-            let sheet = &if let serde_json::Value::Object(m) = sheet {
+            let sheet = if let serde_json::Value::Object(m) = sheet {
                 m
             } else {
                 panic!()
@@ -519,8 +590,18 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             };
             if sheet["type"] == "dx" {
                 dx_sheet_data.push(sheet_info);
+                dx_constants.push(match &sheet["internalLevel"] {
+                    serde_json::Value::Null => None,
+                    serde_json::Value::String(s) => float_to_constant(s),
+                    _ => panic!("Unexpected value for sheet.internalLevel"),
+                });
             } else if sheet["type"] == "std" {
                 st_sheet_data.push(sheet_info);
+                st_constants.push(match &sheet["internalLevel"] {
+                    serde_json::Value::Null => None,
+                    serde_json::Value::String(s) => float_to_constant(s),
+                    _ => panic!("Unexpected value for sheet.internalLevel"),
+                });
             } else {
                 panic!();
             }
@@ -546,7 +627,30 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         r.st_sheets = st_sheet_data;
         r.version = version;
 
-        if r.jp_lv == None {
+        if let Some(_jp_lv) = &mut r.jp_lv {
+            // info site has less constant info; use other site instead
+
+            // if !dx_constants.is_empty() {
+            //     let dx_diff = jp_lv.dx.as_mut().unwrap();
+            //     dx_diff.bas_c = dx_constants[0];
+            //     dx_diff.adv_c = dx_constants[1];
+            //     dx_diff.exp_c = dx_constants[2];
+            //     dx_diff.mas_c = dx_constants[3];
+            //     if let Some(rem_c) = dx_constants.get(4) {
+            //         dx_diff.extra_c = *rem_c;
+            //     }
+            // }
+            // if !st_constants.is_empty() {
+            //     let st_diff = jp_lv.st.as_mut().unwrap();
+            //     st_diff.bas_c = st_constants[0];
+            //     st_diff.adv_c = st_constants[1];
+            //     st_diff.exp_c = st_constants[2];
+            //     st_diff.mas_c = st_constants[3];
+            //     if let Some(rem_c) = st_constants.get(4) {
+            //         st_diff.extra_c = *rem_c;
+            //     }
+            // }
+        } else {
             if let Some(artist) = song.get("artist") {
                 r.artist = serdest_to_string(artist);
             }
@@ -556,7 +660,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     Ok(charts)
 }
 
-pub fn set_mai_aliases() -> Result<Aliases, Error> {
+pub fn set_mai_aliases(mai_charts: &HashMap<String, MaiInfo>) -> Result<Aliases, Error> {
     let mut lowercased = HashMap::new();
     let mut lowercased_and_unspaced = HashMap::new();
     let mut alphanumeric_only = HashMap::new();
@@ -628,6 +732,59 @@ pub fn set_mai_aliases() -> Result<Aliases, Error> {
                     "Alias3 {} (for {}) shadowed by same alias3 for {}",
                     nick, a, title
                 );
+            }
+        }
+    }
+    // Oh god what is this trainwreck
+    for title in mai_charts.keys() {
+        let namem1 = title.to_lowercase();
+        let a = lowercased.insert(namem1.to_string(), title.to_string());
+        if let Some(a) = a {
+            if &a != title {
+                println!(
+                    "Alias-1 {} (for {}) shadowed by same alias-1 for {}",
+                    namem1, a, title
+                );
+            }
+        }
+
+        let name0 = title.to_lowercase().split_whitespace().collect::<String>();
+        let a = lowercased_and_unspaced.insert(name0.to_string(), title.to_string());
+        if let Some(a) = a {
+            if &a != title {
+                println!(
+                    "Alias0 {} (for {}) shadowed by same alias0 for {}",
+                    name0, a, title
+                );
+            }
+        }
+
+        let name1 = name0
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>();
+        if !name1.is_empty() {
+            let a = alphanumeric_only.insert(name1.to_string(), title.to_string());
+            if let Some(a) = a {
+                if &a != title {
+                    println!(
+                        "Alias1 {} (for {}) shadowed by same alias1 for {}",
+                        name1, a, title
+                    );
+                }
+            }
+        }
+
+        let name2 = name1.chars().filter(|c| c.is_ascii()).collect::<String>();
+        if !name2.is_empty() {
+            let a = alphanumeric_and_ascii.insert(name2.to_string(), title.to_string());
+            if let Some(a) = a {
+                if &a != title {
+                    println!(
+                        "Alias2 {} (for {}) shadowed by same alias2 for {}",
+                        name2, a, title
+                    );
+                }
             }
         }
     }

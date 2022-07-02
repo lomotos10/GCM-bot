@@ -1,5 +1,5 @@
 use ordered_float::OrderedFloat;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use strsim::jaro_winkler;
 
 /////////////////////// General utils ///////////////////////
@@ -12,6 +12,9 @@ pub struct Data {
     pub mai_charts: HashMap<String, MaiInfo>,
     pub mai_aliases: Aliases,
     pub mai_jacket_prefix: String,
+
+    pub cooldown_server_ids: HashSet<String>,
+    pub user_timestamp: HashMap<String, String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
@@ -21,6 +24,12 @@ pub struct Difficulty {
     pub exp: String,
     pub mas: String,
     pub extra: Option<String>,
+
+    pub bas_c: Option<OrderedFloat<f32>>,
+    pub adv_c: Option<OrderedFloat<f32>>,
+    pub exp_c: Option<OrderedFloat<f32>>,
+    pub mas_c: Option<OrderedFloat<f32>>,
+    pub extra_c: Option<OrderedFloat<f32>>,
 }
 
 pub struct Aliases {
@@ -50,7 +59,7 @@ pub fn serdest_to_usize(st: &serde_json::Value) -> usize {
 pub fn get_curl(url: &str) -> String {
     let mut data = Vec::new();
     let mut handle = curl::easy::Easy::new();
-    handle.url(url).unwrap();
+    handle.url(url.trim()).unwrap();
     {
         let mut transfer = handle.transfer();
         transfer
@@ -134,6 +143,24 @@ pub fn float_to_level(f: &str) -> String {
     }
 }
 
+pub fn float_to_constant(f: &str) -> Option<OrderedFloat<f32>> {
+    let f = OrderedFloat::from(f.parse::<f32>().unwrap());
+
+    if f <= (0.).into() {
+        None
+    } else {
+        Some(f)
+    }
+}
+
+pub fn constant_to_string(c: Option<OrderedFloat<f32>>) -> String {
+    if let Some(s) = c {
+        format!(" ({:.1})", s)
+    } else {
+        "".to_string()
+    }
+}
+
 /////////////////////// maimai utils ///////////////////////
 
 #[derive(Debug, Eq, PartialEq, Default)]
@@ -147,7 +174,6 @@ pub struct MaiInfo {
     pub jp_lv: Option<MaiDifficulty>,
     pub intl_lv: Option<MaiDifficulty>,
     pub jp_jacket: Option<String>,
-    // intl_jacket: Option<String>,
     pub title: String,
     pub artist: String,
     pub bpm: Option<usize>,
