@@ -1,11 +1,18 @@
 use ordered_float::OrderedFloat;
-use std::collections::{HashMap, HashSet};
+use poise::serenity_prelude::{GuildId, Timestamp, UserId};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use strsim::jaro_winkler;
+use tokio::sync::Mutex;
 
 /////////////////////// General utils ///////////////////////
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
+
+pub const BOT_COOLDOWN: i64 = 30;
 
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
@@ -13,8 +20,8 @@ pub struct Data {
     pub mai_aliases: Aliases,
     pub mai_jacket_prefix: String,
 
-    pub cooldown_server_ids: HashSet<String>,
-    pub user_timestamp: HashMap<String, String>,
+    pub cooldown_server_ids: HashSet<GuildId>,
+    pub user_timestamp: Arc<Mutex<HashMap<GuildId, HashMap<UserId, i64>>>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
@@ -158,6 +165,40 @@ pub fn constant_to_string(c: Option<OrderedFloat<f32>>) -> String {
         format!(" ({:.1})", s)
     } else {
         "".to_string()
+    }
+}
+
+/// Returns true if guild id is registered in `data/cooldown-server-ids.txt`
+/// and user cooldown has not yet passed.
+pub async fn check_cooldown(ctx: &Context<'_>) -> Option<i64> {
+    println!("Id: {:?}", ctx.guild_id());
+    println!("List: {:?}", ctx.data().cooldown_server_ids);
+    println!();
+    let guild_id = ctx.guild_id()?;
+
+    if !ctx.data().cooldown_server_ids.contains(&guild_id) {
+        return None;
+    }
+
+    let mut map = ctx.data().user_timestamp.lock().await;
+    let map = map.get_mut(&guild_id).unwrap();
+
+    let now = Timestamp::now().unix_timestamp();
+    let id = ctx.author().id;
+    let then = map.get(&id);
+    match then {
+        Some(then) => {
+            if now - then < BOT_COOLDOWN {
+                Some(now - then)
+            } else {
+                map.insert(id, now);
+                None
+            }
+        }
+        None => {
+            map.insert(id, now);
+            None
+        }
     }
 }
 

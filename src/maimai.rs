@@ -34,6 +34,19 @@ pub async fn mai_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
+    if let Some(t) = check_cooldown(&ctx).await {
+        if let poise::Context::Application(_) = &ctx {
+            ctx.send(|f| {
+                f.ephemeral(true).content(format!(
+                    "Bot cooldown: please wait {} seconds and try again.",
+                    BOT_COOLDOWN - t
+                ))
+            })
+            .await?;
+        }
+        return Ok(());
+    }
+
     let actual_title = get_title(&title, &ctx.data().mai_aliases);
     if actual_title == None {
         let closest = get_closest_title(&title, &ctx.data().mai_aliases);
@@ -54,7 +67,7 @@ Did you mean **{}** (for **{}**)?",
     }
     let song = song.unwrap();
 
-    let mut description = format!("**Artist:** {}", song.artist.replace("*", "\\*"));
+    let mut description = format!("**Artist:** {}", song.artist.replace('*', "\\*"));
     if let Some(version) = &song.version {
         description = format!("{}\n**Version:** {}", description, version);
     }
@@ -147,7 +160,7 @@ Did you mean **{}** (for **{}**)?",
                     } else {
                         &title
                     }
-                    .replace("*", "\\*"),
+                    .replace('*', "\\*"),
                 )
                 .description(description)
                 .color(serenity::utils::Color::from_rgb(0, 255, 255));
@@ -195,6 +208,18 @@ pub async fn mai_jacket(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
+    if let Some(t) = check_cooldown(&ctx).await {
+        if let poise::Context::Application(_) = &ctx {
+            ctx.send(|f| {
+                f.ephemeral(true).content(format!(
+                    "Bot cooldown: please wait {} seconds and try again.",
+                    BOT_COOLDOWN - t
+                ))
+            })
+            .await?;
+        }
+        return Ok(());
+    }
     let actual_title = get_title(&title, &ctx.data().mai_aliases);
     if actual_title == None {
         let closest = get_closest_title(&title, &ctx.data().mai_aliases);
@@ -650,10 +675,8 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             //         st_diff.extra_c = *rem_c;
             //     }
             // }
-        } else {
-            if let Some(artist) = song.get("artist") {
-                r.artist = serdest_to_string(artist);
-            }
+        } else if let Some(artist) = song.get("artist") {
+            r.artist = serdest_to_string(artist);
         }
     }
 

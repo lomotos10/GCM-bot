@@ -1,9 +1,11 @@
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, GuildId};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{self, File},
     io::{BufRead, BufReader},
+    sync::Arc,
 };
+use tokio::sync::Mutex;
 
 mod utils;
 use utils::*;
@@ -52,17 +54,29 @@ async fn main() {
             Box::pin(async move {
                 let mai_charts = set_mai_charts()?;
                 let mai_aliases = set_mai_aliases(&mai_charts)?;
+                let cooldown_server_ids = {
+                    let file = File::open("data/cooldown-server-ids.txt")?;
+                    BufReader::new(file)
+                        .lines()
+                        .map(|l| l.unwrap().parse::<u64>())
+                        .filter(|b| b.is_ok())
+                        .map(|l| GuildId(l.unwrap()))
+                        .collect::<HashSet<_>>()
+                };
+                let user_timestamp = Arc::new(Mutex::new(
+                    cooldown_server_ids
+                        .iter()
+                        .map(|k| (*k, HashMap::new()))
+                        .collect(),
+                ));
 
                 Ok(Data {
                     mai_charts,
                     mai_aliases,
                     mai_jacket_prefix: fs::read_to_string("data/maimai-jacket-prefix.txt")?,
 
-                    cooldown_server_ids: {
-                        let file = File::open("in_lv.csv")?;
-                        BufReader::new(file).lines().map(|l| l.unwrap()).collect()
-                    },
-                    user_timestamp: HashMap::new(),
+                    cooldown_server_ids,
+                    user_timestamp,
                 })
             })
         });
