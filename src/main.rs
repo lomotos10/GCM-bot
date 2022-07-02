@@ -35,6 +35,14 @@ or send an issue or PR to https://github.com/lomotos10/GCM-bot !";
     Ok(())
 }
 
+/// Advice on how to improve
+#[poise::command(slash_command, prefix_command, rename = "how-to-improve")]
+async fn how_to_improve(ctx: Context<'_>) -> Result<(), Error> {
+    let help = ":regional_indicator_p: :regional_indicator_l: :a: :regional_indicator_y:  :m: :o2: :regional_indicator_r: :regional_indicator_e:";
+    ctx.say(help).await?;
+    Ok(())
+}
+
 #[poise::command(prefix_command)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
@@ -45,7 +53,13 @@ async fn register(ctx: Context<'_>) -> Result<(), Error> {
 async fn main() {
     let framework = poise::Framework::build()
         .options(poise::FrameworkOptions {
-            commands: vec![mai_info(), mai_jacket(), help(), register()],
+            commands: vec![
+                mai_info(),
+                mai_jacket(),
+                help(),
+                how_to_improve(),
+                register(),
+            ],
             ..Default::default()
         })
         .token(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
