@@ -16,6 +16,8 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 
 @GCM-bot mai-info 3 seconds until dawn
 
+In addition to using these commands on servers, you can also DM the bot the same commands to get the same responses.
+
 ## Help / How to Contribute
 
 If there are requested features or nicknames to songs that you want to add, you can choose one of the below methods:
@@ -36,7 +38,6 @@ Here there are three nicknames each separated by a tab.
 
 ## TODO
 
-- [ ] Add KR 🇰🇷
 - [ ] Remove hard panics and unwraps
 - [ ] Add Chuni
 - [ ] Add Ongeki

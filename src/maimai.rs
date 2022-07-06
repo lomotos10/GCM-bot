@@ -6,6 +6,7 @@ use std::{
 
 use lazy_static::lazy_static;
 use poise::serenity_prelude::{self as serenity};
+use walkdir::WalkDir;
 
 use crate::utils::*;
 
@@ -34,6 +35,18 @@ pub async fn mai_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
+    let actual_title = get_title(&title, &ctx.data().mai_aliases);
+    if actual_title == None {
+        let closest = get_closest_title(&title, &ctx.data().mai_aliases);
+        let reply = format!(
+            "I couldn't find the results for **{}**;
+Did you mean **{}** (for **{}**)?",
+            title, closest.0, closest.1
+        );
+        ctx.send(|f| f.ephemeral(true).content(reply)).await?;
+        return Ok(());
+    }
+
     if let Some(t) = check_cooldown(&ctx).await {
         if let poise::Context::Application(_) = &ctx {
             ctx.send(|f| {
@@ -44,18 +57,6 @@ pub async fn mai_info(
             })
             .await?;
         }
-        return Ok(());
-    }
-
-    let actual_title = get_title(&title, &ctx.data().mai_aliases);
-    if actual_title == None {
-        let closest = get_closest_title(&title, &ctx.data().mai_aliases);
-        let reply = format!(
-            "I couldn't find the results for **{}**;
-Did you mean **{}** (for **{}**)?",
-            title, closest.0, closest.1
-        );
-        ctx.send(|f| f.ephemeral(true).content(reply)).await?;
         return Ok(());
     }
     let title = actual_title.unwrap();
@@ -688,14 +689,10 @@ pub fn set_mai_aliases(mai_charts: &HashMap<String, MaiInfo>) -> Result<Aliases,
     let mut lowercased_and_unspaced = HashMap::new();
     let mut alphanumeric_only = HashMap::new();
     let mut alphanumeric_and_ascii = HashMap::new();
-    let mut nicknames = HashMap::new();
-    let file = File::open("data/aliases/en/maimai.tsv")?;
-    let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
-        let split = line.split('\t');
-        let split = split.collect::<Vec<_>>();
-        let title = split[0];
-
+    let mut nicknames_alphanumeric_only = HashMap::new();
+    let mut nicknames_alphanumeric_and_ascii = HashMap::new();
+    // Oh god what is this trainwreck
+    for title in mai_charts.keys() {
         let namem1 = title.to_lowercase();
         let a = lowercased.insert(namem1.to_string(), title.to_string());
         if let Some(a) = a {
@@ -738,79 +735,59 @@ pub fn set_mai_aliases(mai_charts: &HashMap<String, MaiInfo>) -> Result<Aliases,
                 );
             }
         }
-
-        let nickname_slice = &split[1..];
-        for nickname in nickname_slice {
-            let nick = nickname
-                .to_lowercase()
-                .split_whitespace()
-                .collect::<String>();
-            let nick = nick
-                .chars()
-                .filter(|c| c.is_alphanumeric() && c.is_ascii())
-                .collect::<String>();
-            let a = nicknames.insert(nick.to_string(), title.to_string());
-            if let Some(a) = a {
-                println!(
-                    "Alias3 {} (for {}) shadowed by same alias3 for {}",
-                    nick, a, title
-                );
-            }
-        }
     }
-    // Oh god what is this trainwreck
-    for title in mai_charts.keys() {
-        let namem1 = title.to_lowercase();
-        let a = lowercased.insert(namem1.to_string(), title.to_string());
-        if let Some(a) = a {
-            if &a != title {
-                println!(
-                    "Alias-1 {} (for {}) shadowed by same alias-1 for {}",
-                    namem1, a, title
-                );
-            }
-        }
 
-        let name0 = title.to_lowercase().split_whitespace().collect::<String>();
-        let a = lowercased_and_unspaced.insert(name0.to_string(), title.to_string());
-        if let Some(a) = a {
-            if &a != title {
-                println!(
-                    "Alias0 {} (for {}) shadowed by same alias0 for {}",
-                    name0, a, title
-                );
-            }
-        }
+    let files = WalkDir::new("./data/aliases")
+        .into_iter()
+        .filter_map(|file| file.ok())
+        .filter(|file| file.path().file_name().unwrap() == "maimai.tsv")
+        .map(|path| File::open(path.path()).unwrap());
+    for file in files {
+        let lines = BufReader::new(file).lines();
+        for line in lines.flatten() {
+            let split = line.split('\t');
+            let split = split.collect::<Vec<_>>();
+            let title = split[0];
 
-        let name1 = name0
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .collect::<String>();
-        if !name1.is_empty() {
-            let a = alphanumeric_only.insert(name1.to_string(), title.to_string());
-            if let Some(a) = a {
-                if &a != title {
-                    println!(
-                        "Alias1 {} (for {}) shadowed by same alias1 for {}",
-                        name1, a, title
-                    );
+            let nickname_slice = &split[1..];
+            for nickname in nickname_slice {
+                let nick = nickname
+                    .to_lowercase()
+                    .split_whitespace()
+                    .collect::<String>();
+                let nick = nick
+                    .chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .collect::<String>();
+                if !nick.is_empty() {
+                    let a = nicknames_alphanumeric_only.insert(nick.to_string(), title.to_string());
+                    if let Some(a) = a {
+                        if a != title {
+                            println!(
+                                "Alias3 {} (for {}) shadowed by same alias3 for {}",
+                                nick, a, title
+                            );
+                        }
+                    }
                 }
-            }
-        }
-
-        let name2 = name1.chars().filter(|c| c.is_ascii()).collect::<String>();
-        if !name2.is_empty() {
-            let a = alphanumeric_and_ascii.insert(name2.to_string(), title.to_string());
-            if let Some(a) = a {
-                if &a != title {
-                    println!(
-                        "Alias2 {} (for {}) shadowed by same alias2 for {}",
-                        name2, a, title
-                    );
+                let nick = nick.chars().filter(|c| c.is_ascii()).collect::<String>();
+                if !nick.is_empty() {
+                    let a = nicknames_alphanumeric_and_ascii
+                        .insert(nick.to_string(), title.to_string());
+                    if let Some(a) = a {
+                        if a != title {
+                            println!(
+                                "Alias4 {} (for {}) shadowed by same alias4 for {}",
+                                nick, a, title
+                            );
+                        }
+                    }
                 }
             }
         }
     }
+    println!("{:#?}\n\n!!!!!!\n\n", nicknames_alphanumeric_only);
+    println!("{:#?}", nicknames_alphanumeric_and_ascii);
 
     // I fucking hate myself but I don't have the energy to fix this
     for (name0, title) in lowercased_and_unspaced.iter() {
@@ -846,7 +823,7 @@ pub fn set_mai_aliases(mai_charts: &HashMap<String, MaiInfo>) -> Result<Aliases,
             }
         }
     }
-    for (nick, title) in nicknames.iter() {
+    for (nick, title) in nicknames_alphanumeric_and_ascii.iter() {
         if alphanumeric_and_ascii.contains_key(nick) {
             // Don't delete this; it's for actual debugging!
             if title != &alphanumeric_and_ascii[nick] {
@@ -857,12 +834,24 @@ pub fn set_mai_aliases(mai_charts: &HashMap<String, MaiInfo>) -> Result<Aliases,
             }
         }
     }
+    for (nick, title) in nicknames_alphanumeric_only.iter() {
+        if alphanumeric_only.contains_key(nick) {
+            // Don't delete this; it's for actual debugging!
+            if title != &alphanumeric_only[nick] {
+                println!(
+                    "Alias3 {} (for {}) shadowed by same alias2 for {}",
+                    nick, title, alphanumeric_only[nick]
+                );
+            }
+        }
+    }
 
     Ok(Aliases {
         lowercased,
         lowercased_and_unspaced,
         alphanumeric_only,
         alphanumeric_and_ascii,
-        nicknames,
+        nicknames_alphanumeric_only,
+        nicknames_alphanumeric_and_ascii,
     })
 }

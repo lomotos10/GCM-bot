@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
-pub const BOT_COOLDOWN: i64 = 30;
+pub const BOT_COOLDOWN: i64 = 60;
 
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
@@ -44,7 +44,8 @@ pub struct Aliases {
     pub lowercased_and_unspaced: HashMap<String, String>,
     pub alphanumeric_only: HashMap<String, String>,
     pub alphanumeric_and_ascii: HashMap<String, String>,
-    pub nicknames: HashMap<String, String>,
+    pub nicknames_alphanumeric_only: HashMap<String, String>,
+    pub nicknames_alphanumeric_and_ascii: HashMap<String, String>,
 }
 
 pub fn serdest_to_string(st: &serde_json::Value) -> String {
@@ -104,7 +105,10 @@ pub fn get_title(title: &str, aliases: &Aliases) -> Option<String> {
     if let Some(a) = aliases.alphanumeric_and_ascii.get(&title2) {
         return Some(a.to_string());
     }
-    if let Some(a) = aliases.nicknames.get(&title2) {
+    if let Some(a) = aliases.nicknames_alphanumeric_only.get(&title1) {
+        return Some(a.to_string());
+    }
+    if let Some(a) = aliases.nicknames_alphanumeric_and_ascii.get(&title2) {
         return Some(a.to_string());
     }
     None
@@ -133,7 +137,8 @@ pub fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
     candidates.push(f(&aliases.alphanumeric_only, &title1));
     let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
     candidates.push(f(&aliases.alphanumeric_and_ascii, &title2));
-    candidates.push(f(&aliases.nicknames, &title2));
+    candidates.push(f(&aliases.nicknames_alphanumeric_only, &title1));
+    candidates.push(f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
 
     let a = &candidates.iter().max_by_key(|x| (*x).1).unwrap().0;
     (a.0.clone(), a.1.clone())

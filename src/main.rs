@@ -29,8 +29,31 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 
 **WIP:** Chunithm and Ongeki support
 
-If you have any bug reports or suggestions, please contact @Lomo#2363 for help,
-or send an issue or PR to https://github.com/lomotos10/GCM-bot !";
+For detailed info or bug reports or suggestions,
+please refer to <https://github.com/lomotos10/GCM-bot>";
+    ctx.say(help).await?;
+    Ok(())
+}
+
+/// Print Korean help message
+#[poise::command(slash_command, prefix_command, rename = "help-kr")]
+async fn help_kr(ctx: Context<'_>) -> Result<(), Error> {
+    let help = "**게키츄마이 채보 정보 전달 디스코드 봇 GCM-bot입니다.**
+
+**사용 방법:**
+방법 1. 슬래시 명령어 (추천 방법)
+방법 2. @GCM-bot `명령어-이름` `명령어-변수`
+
+**노래 제목으로는 한글 제목 및 영어 별명들이 지원됩니다. 이것저것 시도해 보세요!**
+
+**사용 예시:**
+/mai-info 브브브
+@GCM-bot mai-info 새벽까지 앞으로 3초
+
+**개발 예정:** 츄니즘, 온게키 지원
+
+한글 곡제목 건의, 상세 사용법, 버그 리포트를 위해서는
+다음 링크를 참조해주세요: <https://github.com/lomotos10/GCM-bot/blob/main/README-kr.md>";
     ctx.say(help).await?;
     Ok(())
 }
@@ -57,6 +80,7 @@ async fn main() {
                 mai_info(),
                 mai_jacket(),
                 help(),
+                help_kr(),
                 how_to_improve(),
                 register(),
             ],
