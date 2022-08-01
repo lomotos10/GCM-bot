@@ -8,3 +8,5 @@
 !/data/intl-del.txt
 /*.sh
 /*.csv
+/macro/target
+/macro/Cargo.lock

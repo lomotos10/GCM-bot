@@ -1,3 +1,4 @@
+pub mod chuni;
 pub mod maimai;
 pub mod utils;
 
@@ -14,14 +15,17 @@ mod tests {
     use poise::serenity_prelude::{GuildId, UserId};
 
     use crate::{
-        maimai::{set_mai_aliases, set_mai_charts},
-        utils::get_curl,
+        chuni::set_chuni_charts,
+        maimai::set_mai_charts,
+        utils::{get_curl, set_aliases},
     };
 
     #[test]
     fn full_test() {
         let charts = set_mai_charts().unwrap();
-        set_mai_aliases(&charts).unwrap();
+        set_aliases(charts.keys(), "maimai").unwrap();
+        let charts = set_chuni_charts().unwrap();
+        set_aliases(charts.keys(), "chuni").unwrap();
         let cooldown_server_ids = {
             let file = File::open("data/cooldown-server-ids.txt").unwrap();
             BufReader::new(file)
@@ -39,12 +43,14 @@ mod tests {
         ));
 
         let files_not_urls = [
+            "data/intl-add.txt",
             "data/intl-del.txt",
             "data/jp-del.txt",
             "data/maimai-jacket-prefix.txt",
-            "in_lv.csv",
+            "data/maimai-manual-add.txt",
             "jp_lv.csv",
             "data/cooldown-server-ids.txt",
+            "data/cooldown-channel-exception-ids.txt",
         ];
         let files_urls = [
             "data/maimai-info.txt",

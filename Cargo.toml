@@ -2,7 +2,8 @@
 name = "gcm_bot"
 version = "0.1.0"
 authors = ["lomotos10"]
-edition = "2018"
+edition = "2021"
+default-run = "gcm_bot"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,3 +19,15 @@ itertools = "0.7.6"
 strsim = "0.10.0"
 ordered-float = "3.0.0"
 walkdir = "2"
+syn = {version="1.0.57",features=["full","fold"]}
+quote = "1.0.8"
+gcm-macro = {path = "macro"}
+
+[[bin]]
+name = "mai-diff-differences"
+
+[[bin]]
+name = "mai-chart"
+
+[[bin]]
+name = "chuni-chart"

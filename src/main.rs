@@ -1,4 +1,4 @@
-use poise::serenity_prelude::{self as serenity, GuildId};
+use poise::serenity_prelude::{self as serenity, ChannelId, GuildId};
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File},
@@ -11,6 +11,8 @@ mod utils;
 use utils::*;
 mod maimai;
 use maimai::*;
+mod chuni;
+use chuni::*;
 
 /// Print help message
 #[poise::command(slash_command, prefix_command)]
@@ -79,6 +81,8 @@ async fn main() {
             commands: vec![
                 mai_info(),
                 mai_jacket(),
+                chuni_info(),
+                chuni_jacket(),
                 help(),
                 help_kr(),
                 how_to_improve(),
@@ -91,7 +95,9 @@ async fn main() {
         .user_data_setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 let mai_charts = set_mai_charts()?;
-                let mai_aliases = set_mai_aliases(&mai_charts)?;
+                let mai_aliases = set_aliases(mai_charts.keys(), "maimai")?;
+                let chuni_charts = set_chuni_charts()?;
+                let chuni_aliases = set_aliases(chuni_charts.keys(), "chuni")?;
                 let cooldown_server_ids = {
                     let file = File::open("data/cooldown-server-ids.txt")?;
                     BufReader::new(file)
@@ -101,10 +107,19 @@ async fn main() {
                         .map(|l| GuildId(l.unwrap()))
                         .collect::<HashSet<_>>()
                 };
-                let user_timestamp = Arc::new(Mutex::new(
+                let cooldown_channel_exception_ids = {
+                    let file = File::open("data/cooldown-channel-exception-ids.txt")?;
+                    BufReader::new(file)
+                        .lines()
+                        .map(|l| l.unwrap().parse::<u64>())
+                        .filter(|b| b.is_ok())
+                        .map(|l| ChannelId(l.unwrap()))
+                        .collect::<HashSet<_>>()
+                };
+                let timestamps = Arc::new(Mutex::new(
                     cooldown_server_ids
                         .iter()
-                        .map(|k| (*k, HashMap::new()))
+                        .map(|k| (*k, (HashMap::new(), HashMap::new())))
                         .collect(),
                 ));
 
@@ -113,8 +128,12 @@ async fn main() {
                     mai_aliases,
                     mai_jacket_prefix: fs::read_to_string("data/maimai-jacket-prefix.txt")?,
 
+                    chuni_charts,
+                    chuni_aliases,
+
                     cooldown_server_ids,
-                    user_timestamp,
+                    cooldown_channel_exception_ids,
+                    timestamps,
                 })
             })
         });

@@ -1,4 +1,4 @@
-# GCM-bot: 게키츄마이 채보 정보 전달 디스코드 봇 (현재는 마이마이만 지원)
+# GCM-bot: 게키츄마이 채보 정보 전달 디스코드 봇 (온게키 WIP)
 
 봇 초대 링크: https://discord.com/api/oauth2/authorize?client_id=986651489529397279&permissions=2147502080&scope=applications.commands%20bot
 
@@ -26,7 +26,7 @@
 
 요청하시는 기능이 있거나, 추가하고 싶은 노래 제목 별명이 있다면 다음 방법 중 하나로 개발자에게 연락하실 수 있습니다:
 
-1. 디스코드 @Lomo#2363 로 질문/요청사항 보내기
+1. 디스코드 @Lomo#2363 나 수정사항 제보용 채널 https://discord.gg/8tVDqfZzAN 로 질문/요청사항 보내기
 2. 이 레포에 이슈 올리기
 3. 이 레포에 pull request 요청
 
