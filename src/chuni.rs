@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{self},
+    io::Write,
     time::Duration,
 };
 
@@ -51,7 +52,7 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
 
     let mut description = format!("**Artist:** {}", song.artist.replace('*', "\\*"));
 
-    let in_lv = &song.intl_lv;
+    // let in_lv = &song.intl_lv;
     let jp_lv = &song.jp_lv;
 
     let jp_txt = if let Some(jp_lv) = jp_lv {
@@ -59,29 +60,35 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     } else {
         "**Unreleased**".to_string()
     };
-    let in_txt = if let Some(in_lv) = in_lv {
-        level_description(in_lv)
-    } else {
-        "**Unreleased**".to_string()
-    };
-    if in_txt == jp_txt {
-        description = format!(
-            "{}
+    //     let in_txt = if let Some(in_lv) = in_lv {
+    //         level_description(in_lv)
+    //     } else {
+    //         "**Unreleased**".to_string()
+    //     };
+    //     if in_txt == jp_txt {
+    //         description = format!(
+    //             "{}
 
-**Level:**
-:flag_jp::globe_with_meridians: {}",
-            description, jp_txt
-        );
-    } else {
-        description = format!(
-            "{}
+    // **Level:**
+    // :flag_jp::globe_with_meridians: {}",
+    //             description, jp_txt
+    //         );
+    //     } else {
+    //         description = format!(
+    //             "{}
 
-**Level:**
-:flag_jp: {}
-:globe_with_meridians: {}",
-            description, jp_txt, in_txt
-        );
-    }
+    // **Level:**
+    // :flag_jp: {}
+    // :globe_with_meridians: {}",
+    //             description, jp_txt, in_txt
+    //         );
+    //     }
+    description = format!(
+        "{}
+
+**Level:** {}",
+        description, jp_txt
+    );
 
     Ok((description, song.jp_jacket.clone()))
 }
@@ -260,7 +267,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         }
     }
 
-    // Get intl constants
+    // Get constants
     let intl_viewer = fs::read_to_string("chuni_intl_viewer/chartConstant.json")?;
     let songs: serde_json::Value = serde_json::from_str(&intl_viewer).unwrap();
     let songs = if let serde_json::Value::Array(s) = songs {

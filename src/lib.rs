@@ -1,5 +1,6 @@
 pub mod chuni;
 pub mod maimai;
+pub mod ongeki;
 pub mod utils;
 
 #[cfg(test)]
@@ -17,6 +18,7 @@ mod tests {
     use crate::{
         chuni::set_chuni_charts,
         maimai::set_mai_charts,
+        ongeki::set_ongeki_charts,
         utils::{get_curl, set_aliases},
     };
 
@@ -26,6 +28,8 @@ mod tests {
         set_aliases(charts.keys(), "maimai").unwrap();
         let charts = set_chuni_charts().unwrap();
         set_aliases(charts.keys(), "chuni").unwrap();
+        let charts = set_ongeki_charts().unwrap();
+        set_aliases(charts.keys(), "ongeki").unwrap();
         let cooldown_server_ids = {
             let file = File::open("data/cooldown-server-ids.txt").unwrap();
             BufReader::new(file)

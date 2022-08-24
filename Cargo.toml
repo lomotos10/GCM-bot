@@ -22,6 +22,8 @@ walkdir = "2"
 syn = {version="1.0.57",features=["full","fold"]}
 quote = "1.0.8"
 gcm-macro = {path = "macro"}
+html_parser = "0.6.3"
+chrono = "0.4"
 
 [[bin]]
 name = "mai-diff-differences"
@@ -31,3 +33,12 @@ name = "mai-chart"
 
 [[bin]]
 name = "chuni-chart"
+
+[[bin]]
+name = "ongeki-chart"
+
+[[bin]]
+name = "sync-aliases"
+
+[[bin]]
+name = "grand-slam"

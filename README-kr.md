@@ -42,6 +42,6 @@
 
 ## TODO
 
-- [ ] Remove hard panics and unwraps
-- [ ] Add Chuni
 - [ ] Add Ongeki
+- [ ] Add mai deleted songs
+- [ ] Add mai utage, chuni WE

@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{self, File},
+    io::Write,
     io::{BufRead, BufReader},
     time::Duration,
 };
@@ -33,90 +34,122 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
 
     let song = song.unwrap();
 
-    let mut description = format!("**Artist:** {}", song.artist.replace('*', "\\*"));
+    let mut description = if song.deleted {
+        "**THIS SONG IS DELETED**\n\n"
+    } else {
+        ""
+    }
+    .to_string();
+
+    description = format!(
+        "{}**Artist:** {}",
+        description,
+        song.artist.replace('*', "\\*")
+    );
     if let Some(version) = &song.version {
         description = format!("{}\n**Version:** {}", description, version);
     }
     if let Some(bpm) = song.bpm {
         description = format!("{}\n**BPM:** {}", description, bpm);
     }
+    if song.deleted {
+        let (st, dx) = if let Some(jp_lv) = &song.jp_lv {
+            (jp_lv.st.is_some(), jp_lv.dx.is_some())
+        } else {
+            (false, false)
+        };
 
-    let in_lv = &song.intl_lv;
-    let jp_lv = &song.jp_lv;
-
-    let (in_st, in_dx) = if let Some(in_lv) = in_lv {
-        (in_lv.st.is_some(), in_lv.dx.is_some())
-    } else {
-        (false, false)
-    };
-    let (jp_st, jp_dx) = if let Some(jp_lv) = jp_lv {
-        (jp_lv.st.is_some(), jp_lv.dx.is_some())
-    } else {
-        (false, false)
-    };
-
-    let jp_dx_txt = if jp_dx {
-        level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap())
-    } else {
-        "**Unreleased**".to_string()
-    };
-    let in_dx_txt = if in_dx {
-        level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap())
-    } else {
-        "**Unreleased**".to_string()
-    };
-    if in_dx || jp_dx {
-        if jp_dx_txt == in_dx_txt {
+        if dx {
             description = format!(
-                "{}
+                "{}\n\n**Level(DX):**\n{}",
+                description,
+                level_description(song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap())
+            )
+        }
+        if st {
+            description = format!(
+                "{}\n\n**Level(ST):**\n{}",
+                description,
+                level_description(song.jp_lv.as_ref().unwrap().st.as_ref().unwrap())
+            )
+        }
+    } else {
+        let in_lv = &song.intl_lv;
+        let jp_lv = &song.jp_lv;
+
+        let (in_st, in_dx) = if let Some(in_lv) = in_lv {
+            (in_lv.st.is_some(), in_lv.dx.is_some())
+        } else {
+            (false, false)
+        };
+        let (jp_st, jp_dx) = if let Some(jp_lv) = jp_lv {
+            (jp_lv.st.is_some(), jp_lv.dx.is_some())
+        } else {
+            (false, false)
+        };
+
+        let jp_dx_txt = if jp_dx {
+            level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap())
+        } else {
+            "**Unreleased**".to_string()
+        };
+        let in_dx_txt = if in_dx {
+            level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap())
+        } else {
+            "**Unreleased**".to_string()
+        };
+        if in_dx || jp_dx {
+            if jp_dx_txt == in_dx_txt {
+                description = format!(
+                    "{}
 
 **Level(DX):**
 :flag_jp::globe_with_meridians: {}",
-                description, jp_dx_txt
-            );
-        } else {
-            description = format!(
-                "{}
+                    description, jp_dx_txt
+                );
+            } else {
+                description = format!(
+                    "{}
 
 **Level(DX):**
 :flag_jp: {}
 :globe_with_meridians: {}",
-                description, jp_dx_txt, in_dx_txt
-            );
-        }
-    };
+                    description, jp_dx_txt, in_dx_txt
+                );
+            }
+        };
 
-    let jp_st_txt = if jp_st {
-        level_description(jp_lv.as_ref().unwrap().st.as_ref().unwrap())
-    } else {
-        "**Unreleased**".to_string()
-    };
-    let in_st_txt = if in_st {
-        level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap())
-    } else {
-        "**Unreleased**".to_string()
-    };
-    if in_st || jp_st {
-        if in_st_txt == jp_st_txt {
-            description = format!(
-                "{}
+        let jp_st_txt = if jp_st {
+            level_description(jp_lv.as_ref().unwrap().st.as_ref().unwrap())
+        } else {
+            "**Unreleased**".to_string()
+        };
+        let in_st_txt = if in_st {
+            level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap())
+        } else {
+            "**Unreleased**".to_string()
+        };
+        if in_st || jp_st {
+            if in_st_txt == jp_st_txt {
+                description = format!(
+                    "{}
 
 **Level(ST):**
 :flag_jp::globe_with_meridians: {}",
-                description, jp_st_txt
-            );
-        } else {
-            description = format!(
-                "{}
+                    description, jp_st_txt
+                );
+            } else {
+                description = format!(
+                    "{}
 
 **Level(ST):**
 :flag_jp: {}
 :globe_with_meridians: {}",
-                description, jp_st_txt, in_st_txt
-            );
-        }
-    };
-
+                    description, jp_st_txt, in_st_txt
+                );
+            }
+        };
+    }
     Ok((description, song.jp_jacket.clone()))
 }
 
@@ -260,6 +293,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 dx_sheets: vec![],
                 st_sheets: vec![],
                 version: None,
+                deleted: false,
             },
         );
         assert_eq!(r, None);
@@ -486,6 +520,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                         dx_sheets: vec![],
                         st_sheets: vec![],
                         version: None,
+                        deleted: false,
                     },
                 );
             }
@@ -585,18 +620,41 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             panic!()
         };
 
-        let title = serdest_to_string(song.get("songId").unwrap());
+        let title = song.get("songId").unwrap().as_str().unwrap();
         // Edge case handling for duplicate title
         let title = if title == "Link" {
             "Link (maimai)".to_string()
         } else if title == "Link (2)" {
             "Link".to_string()
         } else {
-            title
+            title.to_string()
         };
 
         if !charts.contains_key(&title) {
-            continue;
+            // Is either Utage or deleted
+            if song.get("category").unwrap() == "宴会場" {
+                // Utage
+                // TODO
+                continue;
+            } else {
+                // Deleted
+                let title = song.get("title").unwrap().as_str().unwrap();
+                charts.insert(
+                    title.to_string(),
+                    MaiInfo {
+                        jp_lv: None,
+                        intl_lv: None,
+                        jp_jacket: None,
+                        title: title.to_string(),
+                        artist: song.get("artist").unwrap().as_str().unwrap().to_string(),
+                        bpm: None,
+                        dx_sheets: vec![],
+                        st_sheets: vec![],
+                        version: None,
+                        deleted: true,
+                    },
+                );
+            }
         }
         let jp_jacket = serdest_to_string(song.get("imageName").unwrap());
 
@@ -609,6 +667,8 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         let mut dx_sheet_data = vec![];
         let mut st_constants = vec![];
         let mut dx_constants = vec![];
+        let mut dx_levels = vec![];
+        let mut st_levels = vec![];
         for sheet in sheets {
             let sheet = if let serde_json::Value::Object(m) = sheet {
                 m
@@ -645,6 +705,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     serde_json::Value::String(s) => float_to_constant(s),
                     _ => panic!("Unexpected value for sheet.internalLevel"),
                 });
+                dx_levels.push(sheet["level"].clone());
             } else if sheet["type"] == "std" {
                 st_sheet_data.push(sheet_info);
                 st_constants.push(match &sheet["internalLevel"] {
@@ -652,6 +713,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     serde_json::Value::String(s) => float_to_constant(s),
                     _ => panic!("Unexpected value for sheet.internalLevel"),
                 });
+                st_levels.push(sheet["level"].clone());
             } else {
                 panic!();
             }
@@ -700,8 +762,62 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             //         st_diff.extra_c = *rem_c;
             //     }
             // }
-        } else if let Some(artist) = song.get("artist") {
-            r.artist = serdest_to_string(artist);
+        } else {
+            if let Some(artist) = song.get("artist") {
+                r.artist = serdest_to_string(artist);
+            }
+            let dx_diff = if !dx_levels.is_empty() {
+                let mut dx_diff = Difficulty {
+                    bas: dx_levels[0].as_str().unwrap().to_string(),
+                    adv: dx_levels[1].as_str().unwrap().to_string(),
+                    exp: dx_levels[2].as_str().unwrap().to_string(),
+                    mas: dx_levels[3].as_str().unwrap().to_string(),
+                    extra: dx_levels.get(4).map(|x| x.as_str().unwrap().to_string()),
+
+                    ..Default::default()
+                };
+                if !dx_constants.is_empty() {
+                    dx_diff.bas_c = dx_constants[0];
+                    dx_diff.adv_c = dx_constants[1];
+                    dx_diff.exp_c = dx_constants[2];
+                    dx_diff.mas_c = dx_constants[3];
+                    if let Some(rem_c) = dx_constants.get(4) {
+                        dx_diff.extra_c = *rem_c;
+                    }
+                }
+                Some(dx_diff)
+            } else {
+                None
+            };
+
+            let st_diff = if !st_levels.is_empty() {
+                let mut st_diff = Difficulty {
+                    bas: st_levels[0].as_str().unwrap().to_string(),
+                    adv: st_levels[1].as_str().unwrap().to_string(),
+                    exp: st_levels[2].as_str().unwrap().to_string(),
+                    mas: st_levels[3].as_str().unwrap().to_string(),
+                    extra: st_levels.get(4).map(|x| x.as_str().unwrap().to_string()),
+
+                    ..Default::default()
+                };
+                if !st_constants.is_empty() {
+                    st_diff.bas_c = st_constants[0];
+                    st_diff.adv_c = st_constants[1];
+                    st_diff.exp_c = st_constants[2];
+                    st_diff.mas_c = st_constants[3];
+                    if let Some(rem_c) = st_constants.get(4) {
+                        st_diff.extra_c = *rem_c;
+                    }
+                }
+                Some(st_diff)
+            } else {
+                None
+            };
+
+            r.jp_lv = Some(MaiDifficulty {
+                dx: dx_diff,
+                st: st_diff,
+            })
         }
     }
 

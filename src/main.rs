@@ -13,6 +13,8 @@ mod maimai;
 use maimai::*;
 mod chuni;
 use chuni::*;
+mod ongeki;
+use ongeki::*;
 
 /// Print help message
 #[poise::command(slash_command, prefix_command)]
@@ -83,6 +85,8 @@ async fn main() {
                 mai_jacket(),
                 chuni_info(),
                 chuni_jacket(),
+                ongeki_info(),
+                ongeki_jacket(),
                 help(),
                 help_kr(),
                 how_to_improve(),
@@ -98,6 +102,8 @@ async fn main() {
                 let mai_aliases = set_aliases(mai_charts.keys(), "maimai")?;
                 let chuni_charts = set_chuni_charts()?;
                 let chuni_aliases = set_aliases(chuni_charts.keys(), "chuni")?;
+                let ongeki_charts = set_ongeki_charts()?;
+                let ongeki_aliases = set_aliases(ongeki_charts.keys(), "ongeki")?;
                 let cooldown_server_ids = {
                     let file = File::open("data/cooldown-server-ids.txt")?;
                     BufReader::new(file)
@@ -122,6 +128,10 @@ async fn main() {
                         .map(|k| (*k, (HashMap::new(), HashMap::new())))
                         .collect(),
                 ));
+                let alias_log = Arc::new(Mutex::new(File::create(format!(
+                    "alias_log_{}.txt",
+                    chrono::prelude::Utc::now()
+                ))?));
 
                 Ok(Data {
                     mai_charts,
@@ -131,9 +141,13 @@ async fn main() {
                     chuni_charts,
                     chuni_aliases,
 
+                    ongeki_charts,
+                    ongeki_aliases,
+
                     cooldown_server_ids,
                     cooldown_channel_exception_ids,
                     timestamps,
+                    alias_log,
                 })
             })
         });

@@ -6,7 +6,7 @@ use std::{
     io::{BufRead, BufReader},
     sync::Arc,
 };
-use strsim::jaro_winkler;
+use strsim::jaro;
 use tokio::sync::Mutex;
 use walkdir::WalkDir;
 
@@ -29,9 +29,13 @@ pub struct Data {
     pub chuni_charts: HashMap<String, ChuniInfo>,
     pub chuni_aliases: Aliases,
 
+    pub ongeki_charts: HashMap<String, OngekiInfo>,
+    pub ongeki_aliases: Aliases,
+
     pub cooldown_server_ids: HashSet<GuildId>,
     pub cooldown_channel_exception_ids: HashSet<ChannelId>,
     pub timestamps: Arc<Mutex<HashMap<GuildId, Maps>>>,
+    pub alias_log: Arc<Mutex<File>>,
 }
 
 pub enum Cooldown {
@@ -114,6 +118,33 @@ impl Difficulty {
             panic!()
         }
     }
+
+    pub fn set_constant(&mut self, idx: usize, lv: String) -> String {
+        let lv = float_to_constant(&lv).unwrap();
+        if idx == 0 {
+            let s = self.bas.clone();
+            (*self).bas_c = Some(lv);
+            s
+        } else if idx == 1 {
+            let s = self.adv.clone();
+            (*self).adv_c = Some(lv);
+            s
+        } else if idx == 2 {
+            let s = self.exp.clone();
+            (*self).exp_c = Some(lv);
+            s
+        } else if idx == 3 {
+            let s = self.mas.clone();
+            (*self).mas_c = Some(lv);
+            s
+        } else if idx == 4 {
+            let s = self.lv(4);
+            (*self).extra_c = Some(lv);
+            s
+        } else {
+            panic!()
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -142,7 +173,6 @@ pub fn serdest_to_usize(st: &serde_json::Value) -> usize {
         panic!()
     }
 }
-
 pub fn get_curl(url: &str) -> String {
     let mut data = Vec::new();
     let mut handle = curl::easy::Easy::new();
@@ -396,7 +426,7 @@ pub fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
     let f = |x: &HashMap<String, String>, title: &String| {
         let a = x
             .iter()
-            .map(|x| (x, OrderedFloat(jaro_winkler(x.0, title))))
+            .map(|x| (x, OrderedFloat(jaro(x.0, title))))
             .max_by_key(|x| x.1)
             .unwrap();
         ((a.0 .0.clone(), a.0 .1.clone()), a.1)
@@ -435,7 +465,7 @@ pub fn float_to_level(f: &str) -> String {
 pub fn float_to_constant(f: &str) -> Option<OrderedFloat<f32>> {
     let f = OrderedFloat::from(f.parse::<f32>().unwrap());
 
-    if f <= (0.).into() {
+    if f < (0.).into() {
         None
     } else {
         Some(f)
@@ -496,11 +526,11 @@ pub async fn check_cooldown(ctx: &Context<'_>) -> Cooldown {
 ///
 pub fn diff_to_idx(diff: &str) -> usize {
     let strs = [
-        vec!["BAS"],
-        vec!["ADV"],
-        vec!["EXP"],
-        vec!["MAS"],
-        vec!["REM"],
+        vec!["BAS", "Basic"],
+        vec!["ADV", "Advanced"],
+        vec!["EXP", "Expert"],
+        vec!["MAS", "Master"],
+        vec!["REM", "Lunatic"],
     ];
     for (i, st) in strs.iter().enumerate() {
         if st.contains(&diff) {
@@ -529,6 +559,7 @@ pub struct MaiInfo {
     pub dx_sheets: Vec<MaiSheet>,
     pub st_sheets: Vec<MaiSheet>,
     pub version: Option<String>,
+    pub deleted: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -541,7 +572,7 @@ pub struct MaiSheet {
 }
 
 /////////////////////// chuni utils ///////////////////////
-///
+
 #[derive(Debug, Eq, PartialEq, Default)]
 pub struct ChuniInfo {
     pub jp_lv: Option<Difficulty>,
@@ -564,4 +595,20 @@ pub fn float_to_chuni_level(f: &str) -> String {
     } else {
         format!("{}+", f.floor())
     }
+}
+
+/////////////////////// ongeki utils ///////////////////////
+
+#[derive(Debug, Eq, PartialEq, Default)]
+pub struct OngekiInfo {
+    pub lv: Option<Difficulty>,
+    pub jp_jacket: Option<String>,
+    pub title: String,
+    pub artist: String,
+    pub date: usize,
+    pub character: String,
+    pub category: String, // pub bpm: Option<usize>,
+                          // pub dx_sheets: Vec<MaiSheet>,
+                          // pub st_sheets: Vec<MaiSheet>,
+                          // pub version: Option<String>,
 }

@@ -29,6 +29,10 @@ pub fn jacket_template(tokens: TokenStream) -> TokenStream {
     let code = format!("
     let actual_title = get_title(&title, &ctx.data().{}_aliases);
     if actual_title == None {{
+        let mut log = ctx.data().alias_log.lock().await;
+        writeln!(log, \"{{}}\\t{}\", title)?;
+        log.sync_all()?;
+        drop(log);
         let closest = get_closest_title(&title, &ctx.data().{}_aliases);
         let reply = format!(
             \"I couldn't find the results for **{{}}**;
@@ -107,7 +111,7 @@ Did you mean **{{}}** (for **{{}}**)?\",
         }})
         .await?;
     }}
-    ", game, game, game, game, jacket_url, game, jacket_url);
+    ", game, game, game, game, game, jacket_url, game, jacket_url);
     // println!("{}", code);
     code.parse().unwrap()
 }
@@ -130,6 +134,10 @@ pub fn info_template(tokens: TokenStream) -> TokenStream {
     let code = format!("
     let actual_title = get_title(&title, &ctx.data().{}_aliases);
     if actual_title == None {{
+        let mut log = ctx.data().alias_log.lock().await;
+        writeln!(log, \"{{}}\\t{}\", title)?;
+        log.sync_all()?;
+        drop(log);
         let closest = get_closest_title(&title, &ctx.data().{}_aliases);
         let reply = format!(
             \"I couldn't find the results for **{{}}**;
@@ -233,7 +241,7 @@ Did you mean **{{}}** (for **{{}}**)?\",
     ctx.send(|f| {{
         f.embed(|f| {{
             let mut f = f
-                .title(&title.replace('*', \"\\\\*\"))
+                .title({}_duplicate_alias_to_title(&title).replace('*', \"\\\\*\"))
                 .description(description)
                 .color(serenity::utils::Color::from_rgb({}));
             if let Some(jacket) = jacket {{
@@ -247,7 +255,7 @@ Did you mean **{{}}** (for **{{}}**)?\",
             f
         }})
     }})
-    .await?;", game, game, game, game, game, color, jacket_url, game, color, jacket_url);
+    .await?;", game, game, game, game, game, game, color, jacket_url, game, game, color, jacket_url);
     // println!("{}", code);
     code.parse().unwrap()
 }
