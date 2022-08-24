@@ -63,14 +63,14 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
             description = format!(
                 "{}\n\n**Level(DX):**\n{}",
                 description,
-                level_description(song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap())
+                level_description(song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap(),  &title)
             )
         }
         if st {
             description = format!(
                 "{}\n\n**Level(ST):**\n{}",
                 description,
-                level_description(song.jp_lv.as_ref().unwrap().st.as_ref().unwrap())
+                level_description(song.jp_lv.as_ref().unwrap().st.as_ref().unwrap(), &title)
             )
         }
     } else {
@@ -89,12 +89,12 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
         };
 
         let jp_dx_txt = if jp_dx {
-            level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap())
+            level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap(),  &title)
         } else {
             "**Unreleased**".to_string()
         };
         let in_dx_txt = if in_dx {
-            level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap())
+            level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap(),  &title)
         } else {
             "**Unreleased**".to_string()
         };
@@ -120,12 +120,12 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
         };
 
         let jp_st_txt = if jp_st {
-            level_description(jp_lv.as_ref().unwrap().st.as_ref().unwrap())
+            level_description(jp_lv.as_ref().unwrap().st.as_ref().unwrap(), &title)
         } else {
             "**Unreleased**".to_string()
         };
         let in_st_txt = if in_st {
-            level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap())
+            level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap(),  &title)
         } else {
             "**Unreleased**".to_string()
         };
@@ -175,20 +175,25 @@ pub async fn mai_info(
     Ok(())
 }
 
-fn level_description(lv: &Difficulty) -> String {
+fn level_description(lv: &Difficulty, title: &str) -> String {
+    let title = urlencoding::encode(title);
     format!(
         // "BAS **{}{}**/ADV **{}{}**/EXP **{}{}**/MAS **{}{}**{}",
-        "B **{}**{} / A **{}**{} / E **{}**{} / M **{}**{}{}",
+        "[B](https://www.youtube.com/results?search_query=maimai+{}+BASIC) **{}**{} / [A](https://www.youtube.com/results?search_query=maimai+{}+ADVANCED) **{}**{} / [E](https://www.youtube.com/results?search_query=maimai+{}+EXPERT) **{}**{} / [M](https://www.youtube.com/results?search_query=maimai+{}+MASTER) **{}**{}{}",
+        title,
         lv.bas,
         constant_to_string(lv.bas_c),
+        title,
         lv.adv,
         constant_to_string(lv.adv_c),
+        title,
         lv.exp,
         constant_to_string(lv.exp_c),
+        title,
         lv.mas,
         constant_to_string(lv.mas_c),
         if let Some(rem) = &lv.extra {
-            format!(" / R **{}**{}", rem, constant_to_string(lv.extra_c))
+            format!(" / [R](https://www.youtube.com/results?search_query=maimai+{}+Re:MASTER) **{}**{}", title, rem, constant_to_string(lv.extra_c))
         } else {
             "".to_string()
         }

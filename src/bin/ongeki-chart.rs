@@ -7,7 +7,6 @@ fn main() {
     // println!("{:#?}", m);
     // set_aliases(m.keys(), "chuni").unwrap();
 
-    
     let url = fs::read_to_string("data/ongeki-lv.txt").unwrap();
     let url = url.trim();
     println!("{}", url);

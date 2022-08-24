@@ -49,7 +49,7 @@ fn get_ongeki_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<S
         song.artist.replace('*', "\\*"),
         version,
         song.character,
-        level_description(song.lv.as_ref().unwrap())
+        level_description(song.lv.as_ref().unwrap(), &title)
     );
 
     Ok((description, song.jp_jacket.clone()))
@@ -83,19 +83,25 @@ pub async fn ongeki_info(
     Ok(())
 }
 
-fn level_description(lv: &Difficulty) -> String {
+fn level_description(lv: &Difficulty, title: &str) -> String {
+    let title = urlencoding::encode(title);
     format!(
-        "B **{}**{} / A **{}**{} / E **{}**{} / M **{}**{}{}",
+        // "BAS **{}{}**/ADV **{}{}**/EXP **{}{}**/MAS **{}{}**{}",
+        "[B](https://www.youtube.com/results?search_query=オンゲキ+{}+BASIC) **{}**{} / [A](https://www.youtube.com/results?search_query=オンゲキ+{}+ADVANCED) **{}**{} / [E](https://www.youtube.com/results?search_query=オンゲキ+{}+EXPERT) **{}**{} / [M](https://www.youtube.com/results?search_query=オンゲキ+{}+MASTER) **{}**{}{}",
+        title,
         lv.bas,
         constant_to_string(lv.bas_c),
+        title,
         lv.adv,
         constant_to_string(lv.adv_c),
+        title,
         lv.exp,
         constant_to_string(lv.exp_c),
+        title,
         lv.mas,
         constant_to_string(lv.mas_c),
         if let Some(rem) = &lv.extra {
-            format!(" / L **{}**{}", rem, constant_to_string(lv.extra_c))
+            format!(" / [L](https://www.youtube.com/results?search_query=オンゲキ+{}+LUNATIC) **{}**{}", title, rem, constant_to_string(lv.extra_c))
         } else {
             "".to_string()
         }

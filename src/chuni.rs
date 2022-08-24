@@ -56,37 +56,39 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     let jp_lv = &song.jp_lv;
 
     let jp_txt = if let Some(jp_lv) = jp_lv {
-        level_description(jp_lv)
+        level_description(jp_lv, &title)
     } else {
         "**Unreleased**".to_string()
     };
-//     let in_txt = if let Some(in_lv) = in_lv {
-//         level_description(in_lv)
-//     } else {
-//         "**Unreleased**".to_string()
-//     };
-//     if in_txt == jp_txt {
-//         description = format!(
-//             "{}
+    //     let in_txt = if let Some(in_lv) = in_lv {
+    //         level_description(in_lv)
+    //     } else {
+    //         "**Unreleased**".to_string()
+    //     };
+    //     if in_txt == jp_txt {
+    //         description = format!(
+    //             "{}
 
-// **Level:**
-// :flag_jp::globe_with_meridians: {}",
-//             description, jp_txt
-//         );
-//     } else {
-//         description = format!(
-//             "{}
+    // **Level:**
+    // :flag_jp::globe_with_meridians: {}",
+    //             description, jp_txt
+    //         );
+    //     } else {
+    //         description = format!(
+    //             "{}
 
-// **Level:**
-// :flag_jp: {}
-// :globe_with_meridians: {}",
-//             description, jp_txt, in_txt
-//         );
-//     }
-    description = format!("{}
+    // **Level:**
+    // :flag_jp: {}
+    // :globe_with_meridians: {}",
+    //             description, jp_txt, in_txt
+    //         );
+    //     }
+    description = format!(
+        "{}
 
-**Level:** {}"
-    , description, jp_txt);
+**Level:** {}",
+        description, jp_txt
+    );
 
     Ok((description, song.jp_jacket.clone()))
 }
@@ -111,19 +113,24 @@ pub async fn chuni_info(
     Ok(())
 }
 
-fn level_description(lv: &Difficulty) -> String {
+fn level_description(lv: &Difficulty, title: &str) -> String {
+    let title = urlencoding::encode(title);
     format!(
-        "B **{}**{} / A **{}**{} / E **{}**{} / M **{}**{}{}",
+        "[B](https://www.youtube.com/results?search_query=CHUNITHM+{}+BASIC) **{}**{} / [A](https://www.youtube.com/results?search_query=CHUNITHM+{}+ADVANCED) **{}**{} / [E](https://www.youtube.com/results?search_query=CHUNITHM+{}+EXPERT) **{}**{} / [M](https://www.youtube.com/results?search_query=CHUNITHM+{}+MASTER) **{}**{}{}",
+        title,
         lv.bas,
         constant_to_string(lv.bas_c),
+        title,
         lv.adv,
         constant_to_string(lv.adv_c),
+        title,
         lv.exp,
         constant_to_string(lv.exp_c),
+        title,
         lv.mas,
         constant_to_string(lv.mas_c),
         if let Some(rem) = &lv.extra {
-            format!(" / U **{}**{}", rem, constant_to_string(lv.extra_c))
+            format!(" / [U](https://www.youtube.com/results?search_query=CHUNITHM+{}+ULTIMA) **{}**{}", title, rem, constant_to_string(lv.extra_c))
         } else {
             "".to_string()
         }
