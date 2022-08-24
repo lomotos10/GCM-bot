@@ -1,4 +1,4 @@
-# GCM-bot: A chart info bot for GekiChuMai! (Ongeki WIP)
+# GCM-bot: A chart info bot for GekiChuMai!
 
 Invite link: https://discord.com/api/oauth2/authorize?client_id=986651489529397279&permissions=2147502080&scope=applications.commands%20bot
 
@@ -18,6 +18,14 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 
 In addition to using these commands on servers, you can also DM the bot the same commands to get the same responses.
 
+## Supported commands
+
+- /\[mai|chuni|ongeki\]-info `song name`: Shows the maimai/chunithm/ongeki level and chart constants of the song, as well as other info.
+- /\[mai|chuni|ongeki\]-jacket `song name`: Shows the maimai/chunithm/ongeki jacket of the chart.
+- /help: Links to this page.
+
+There may be more hidden undocumented commands!
+
 ## Help / How to Contribute
 
 If there are requested features or nicknames to songs that you want to add, you can choose one of the below methods:
@@ -35,9 +43,3 @@ Example line of `data/aliases/en/maimai.tsv`:
 封焔の135秒	135	135 seconds of flame	135 seconds
 ```
 Here there are three nicknames each separated by a tab.
-
-## TODO
-
-- [ ] Remove hard panics and unwraps
-- [ ] Add Chuni
-- [ ] Add Ongeki

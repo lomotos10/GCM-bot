@@ -60,35 +60,33 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     } else {
         "**Unreleased**".to_string()
     };
-    //     let in_txt = if let Some(in_lv) = in_lv {
-    //         level_description(in_lv)
-    //     } else {
-    //         "**Unreleased**".to_string()
-    //     };
-    //     if in_txt == jp_txt {
-    //         description = format!(
-    //             "{}
+//     let in_txt = if let Some(in_lv) = in_lv {
+//         level_description(in_lv)
+//     } else {
+//         "**Unreleased**".to_string()
+//     };
+//     if in_txt == jp_txt {
+//         description = format!(
+//             "{}
 
-    // **Level:**
-    // :flag_jp::globe_with_meridians: {}",
-    //             description, jp_txt
-    //         );
-    //     } else {
-    //         description = format!(
-    //             "{}
+// **Level:**
+// :flag_jp::globe_with_meridians: {}",
+//             description, jp_txt
+//         );
+//     } else {
+//         description = format!(
+//             "{}
 
-    // **Level:**
-    // :flag_jp: {}
-    // :globe_with_meridians: {}",
-    //             description, jp_txt, in_txt
-    //         );
-    //     }
-    description = format!(
-        "{}
+// **Level:**
+// :flag_jp: {}
+// :globe_with_meridians: {}",
+//             description, jp_txt, in_txt
+//         );
+//     }
+    description = format!("{}
 
-**Level:** {}",
-        description, jp_txt
-    );
+**Level:** {}"
+    , description, jp_txt);
 
     Ok((description, song.jp_jacket.clone()))
 }
