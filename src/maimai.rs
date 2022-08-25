@@ -63,7 +63,7 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
             description = format!(
                 "{}\n\n**Level(DX):**\n{}",
                 description,
-                level_description(song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap(),  &title)
+                level_description(song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap(), &title)
             )
         }
         if st {
@@ -89,12 +89,12 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
         };
 
         let jp_dx_txt = if jp_dx {
-            level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap(),  &title)
+            level_description(jp_lv.as_ref().unwrap().dx.as_ref().unwrap(), &title)
         } else {
             "**Unreleased**".to_string()
         };
         let in_dx_txt = if in_dx {
-            level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap(),  &title)
+            level_description(in_lv.as_ref().unwrap().dx.as_ref().unwrap(), &title)
         } else {
             "**Unreleased**".to_string()
         };
@@ -125,7 +125,7 @@ fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<Stri
             "**Unreleased**".to_string()
         };
         let in_st_txt = if in_st {
-            level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap(),  &title)
+            level_description(in_lv.as_ref().unwrap().st.as_ref().unwrap(), &title)
         } else {
             "**Unreleased**".to_string()
         };

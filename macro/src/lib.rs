@@ -30,10 +30,10 @@ pub fn jacket_template(tokens: TokenStream) -> TokenStream {
     let actual_title = get_title(&title, &ctx.data().{}_aliases);
     if actual_title == None {{
         let mut log = ctx.data().alias_log.lock().await;
-        writeln!(log, \"{{}}\\t{}\", title)?;
+        let closest = get_closest_title(&title, &ctx.data().{}_aliases);
+        writeln!(log, \"{{}}\\t{}\\t{{}}\\t{{}}\", title, closest.0, closest.1)?;
         log.sync_all()?;
         drop(log);
-        let closest = get_closest_title(&title, &ctx.data().{}_aliases);
         let reply = format!(
             \"I couldn't find the results for **{{}}**;
 Did you mean **{{}}** (for **{{}}**)?\",

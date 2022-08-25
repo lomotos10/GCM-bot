@@ -607,8 +607,7 @@ pub struct OngekiInfo {
     pub artist: String,
     pub date: usize,
     pub character: String,
-    pub category: String, // pub bpm: Option<usize>,
-                          // pub dx_sheets: Vec<MaiSheet>,
-                          // pub st_sheets: Vec<MaiSheet>,
-                          // pub version: Option<String>,
+    pub category: String,
+    pub element: String,
+    pub char_lv: usize,
 }

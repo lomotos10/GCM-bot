@@ -43,3 +43,12 @@ Example line of `data/aliases/en/maimai.tsv`:
 封焔の135秒	135	135 seconds of flame	135 seconds
 ```
 Here there are three nicknames each separated by a tab.
+
+## Thanks
+
+Thanks to the following people who are maintaining these awesome repositories:
+
+- [zetaraku](https://github.com/zetaraku) of [arcade-songs](https://github.com/zetaraku/arcade-songs) (https://arcade-songs.zetaraku.dev/)
+- [kyroslee](https://github.com/kyroslee) of [chuni_intl_viewer](https://github.com/kyroslee/chuni_intl_viewer)
+- [project-primera](https://github.com/project-primera) of [ongeki-score](https://github.com/project-primera/ongeki-score) (https://ongeki-score.net/)
+  - Contributors to ongeki-score: [@Rinsaku471](https://twitter.com/Rinsaku471), [@RKS49019722](https://twitter.com/RKS49019722), [@masa_9713](https://twitter.com/masa_9713)

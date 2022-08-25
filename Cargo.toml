@@ -25,6 +25,7 @@ gcm-macro = {path = "macro"}
 html_parser = "0.6.3"
 chrono = "0.4"
 urlencoding = "2.1.0"
+tl = "0.7.6"
 
 [[bin]]
 name = "mai-diff-differences"
