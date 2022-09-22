@@ -93,6 +93,23 @@ impl Difficulty {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn get_constant(&self, idx: usize) -> Option<OrderedFloat<f32>> {
+        if idx == 0 {
+            self.bas_c.clone()
+        } else if idx == 1 {
+            self.adv_c.clone()
+        } else if idx == 2 {
+            self.exp_c.clone()
+        } else if idx == 3 {
+            self.mas_c.clone()
+        } else if idx == 4 {
+            self.extra_c.clone()
+        } else {
+            panic!()
+        }
+    }
+
     pub fn set_lv(&mut self, idx: usize, lv: String) -> String {
         if idx == 0 {
             let s = self.bas.clone();
@@ -560,6 +577,7 @@ pub struct MaiInfo {
     pub st_sheets: Vec<MaiSheet>,
     pub version: Option<String>,
     pub deleted: bool,
+    pub order: Option<usize>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

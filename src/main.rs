@@ -152,6 +152,6 @@ async fn main() {
             })
         });
 
-    println!("Starting run:");
+    eprintln!("Starting run:");
     framework.run().await.unwrap();
 }

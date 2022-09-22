@@ -285,6 +285,11 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             st: st_lv,
             dx: dx_lv,
         };
+
+        let order = serdest_to_string(song.get("sort").unwrap())
+            .parse::<usize>()
+            .unwrap();
+
         let r = charts.insert(
             title.clone(),
             MaiInfo {
@@ -299,6 +304,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 st_sheets: vec![],
                 version: None,
                 deleted: false,
+                order: Some(order),
             },
         );
         assert_eq!(r, None);
@@ -371,7 +377,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     if diff.bas == float_to_level(line[1]) {
                         diff.bas_c = float_to_constant(line[1]);
                     } else {
-                        println!(
+                        eprintln!(
                             "Conflict on {} {} BAS: {} vs {}",
                             title,
                             if line[0] == "0" { "ST" } else { "DX" },
@@ -382,7 +388,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     if diff.adv == float_to_level(line[2]) {
                         diff.adv_c = float_to_constant(line[2]);
                     } else {
-                        println!(
+                        eprintln!(
                             "Conflict on {} {} ADV: {} vs {}",
                             title,
                             if line[0] == "0" { "ST" } else { "DX" },
@@ -393,7 +399,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     if diff.exp == float_to_level(line[3]) {
                         diff.exp_c = float_to_constant(line[3]);
                     } else {
-                        println!(
+                        eprintln!(
                             "Conflict on {} {} EXP: {} vs {}",
                             title,
                             if line[0] == "0" { "ST" } else { "DX" },
@@ -404,7 +410,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     if diff.mas == float_to_level(line[4]) {
                         diff.mas_c = float_to_constant(line[4]);
                     } else {
-                        println!(
+                        eprintln!(
                             "Conflict on {} {} MAS: {} vs {}",
                             title,
                             if line[0] == "0" { "ST" } else { "DX" },
@@ -416,7 +422,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                         if diff.extra == Some(float_to_level(line[5])) {
                             diff.extra_c = float_to_constant(line[5]);
                         } else {
-                            println!(
+                            eprintln!(
                                 "Conflict on {} {} REM: {:?} vs {}",
                                 title,
                                 if line[0] == "0" { "ST" } else { "DX" },
@@ -433,7 +439,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     }
 
     // Get intl difficulty.
-    let jp_and_intl_version_is_different = false;
+    let jp_and_intl_version_is_different = true;
     if jp_and_intl_version_is_different {
         let file = File::open("in_lv.csv")?;
         let reader = BufReader::new(file);
@@ -526,6 +532,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                         st_sheets: vec![],
                         version: None,
                         deleted: false,
+                        order: None,
                     },
                 );
             }
@@ -537,18 +544,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 (*info).intl_lv = info.jp_lv.clone();
             }
         }
-        let file = File::open("data/intl-add.txt")?;
-        let reader = BufReader::new(file).lines();
-        for line in reader.flatten() {
-            let x = charts.insert(
-                line.clone(),
-                MaiInfo {
-                    title: line.trim().to_string(),
-                    ..Default::default()
-                },
-            );
-            assert!(x.is_none());
-        }
+    }
+
+    let file = File::open("data/intl-add.txt")?;
+    let reader = BufReader::new(file).lines();
+    for line in reader.flatten() {
+        let x = charts.insert(
+            line.clone(),
+            MaiInfo {
+                title: line.trim().to_string(),
+                ..Default::default()
+            },
+        );
+        assert!(x.is_none());
     }
 
     // deleted songs
@@ -657,6 +665,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                         st_sheets: vec![],
                         version: None,
                         deleted: true,
+                        order: None,
                     },
                 );
             }
@@ -826,6 +835,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         }
     }
 
+    // Jp deleted songs.
+    let file = File::open("data/jp-del.txt")?;
+    for title in BufReader::new(file).lines().flatten() {
+        let chart = charts.get_mut(&title).unwrap();
+        if chart.intl_lv.is_none() {
+            assert!(!chart.deleted, "{}", title);
+            chart.deleted = true;
+        } else {
+            assert!(chart.jp_lv.is_some());
+            chart.jp_lv = None;
+        }
+    }
+
     // Add manual constant info
     let file = File::open("data/maimai-manual-add.txt")?;
     let lines = BufReader::new(file).lines();
@@ -862,19 +884,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             if line[2] == "EXP" {
                 assert!(inner.exp_c.is_none() || inner.exp_c == cst);
                 if inner.exp_c == cst {
-                    println!("{:?} exists on server", line);
+                    eprintln!("{:?} exists on server", line);
                 }
                 (*inner).exp_c = cst;
             } else if line[2] == "MAS" {
                 assert!(inner.mas_c.is_none() || inner.mas_c == cst);
                 if inner.mas_c == cst {
-                    println!("{:?} exists on server", line);
+                    eprintln!("{:?} exists on server", line);
                 }
                 (*inner).mas_c = cst;
             } else if line[2] == "REM" {
                 assert!(inner.extra_c.is_none() || inner.extra_c == cst);
                 if inner.extra_c == cst {
-                    println!("{:?} exists on server", line);
+                    eprintln!("{:?} exists on server", line);
                 }
                 (*inner).extra_c = cst;
             } else {
@@ -884,7 +906,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             // Add level
             let diff_idx = diff_to_idx(line[2]);
             let diff_str = inner.lv(diff_idx);
-            assert!(diff_str == "?");
+            assert_eq!(diff_str, "?");
             inner.set_lv(diff_idx, line[4].to_string());
         }
     }

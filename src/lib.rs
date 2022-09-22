@@ -52,7 +52,7 @@ mod tests {
             "data/jp-del.txt",
             "data/maimai-jacket-prefix.txt",
             "data/maimai-manual-add.txt",
-            "jp_lv.csv",
+            // "jp_lv.csv",
             "data/cooldown-server-ids.txt",
             "data/cooldown-channel-exception-ids.txt",
         ];

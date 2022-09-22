@@ -528,7 +528,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 lv.set_constant(diff_idx, cst.to_string());
             }
         } else {
-            // println!("{}", title);
+            // eprintln!("{}", title);
         }
     }
 
@@ -579,8 +579,8 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 let top = title_node.children().unwrap();
                 let top = top.top();
                 if top.len() > 2 {
-                    println!("{:#?}", top[0].get(parser));
-                    println!("{:#?}", top[1].get(parser));
+                    eprintln!("{:#?}", top[0].get(parser));
+                    eprintln!("{:#?}", top[1].get(parser));
                     panic!();
                 }
                 title_node = top[0].get(parser).unwrap();
@@ -591,15 +591,15 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 .try_as_utf8_str()
                 .unwrap()
                 .trim();
-            // println!("{:#?}", title_lv);
+            // eprintln!("{:#?}", title_lv);
 
             let mut character_node = children[3];
             while character_node.children().is_some() {
                 let top = character_node.children().unwrap();
                 let top = top.top();
                 if top.len() > 2 {
-                    println!("{:#?}", top[0].get(parser));
-                    println!("{:#?}", top[1].get(parser));
+                    eprintln!("{:#?}", top[0].get(parser));
+                    eprintln!("{:#?}", top[1].get(parser));
                     panic!();
                 }
                 // assert_eq!(top.len(), 1);
@@ -611,15 +611,15 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 .try_as_utf8_str()
                 .unwrap()
                 .trim();
-            // println!("{:#?}", character);
+            // eprintln!("{:#?}", character);
 
             let mut lv_node = children[4];
             while lv_node.children().is_some() {
                 let top = lv_node.children().unwrap();
                 let top = top.top();
                 if top.len() > 2 {
-                    println!("{:#?}", top[0].get(parser));
-                    println!("{:#?}", top[1].get(parser));
+                    eprintln!("{:#?}", top[0].get(parser));
+                    eprintln!("{:#?}", top[1].get(parser));
                     panic!();
                 }
                 // assert_eq!(top.len(), 1);
