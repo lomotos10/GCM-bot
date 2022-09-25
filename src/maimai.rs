@@ -835,19 +835,6 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         }
     }
 
-    // Jp deleted songs.
-    let file = File::open("data/jp-del.txt")?;
-    for title in BufReader::new(file).lines().flatten() {
-        let chart = charts.get_mut(&title).unwrap();
-        if chart.intl_lv.is_none() {
-            assert!(!chart.deleted, "{}", title);
-            chart.deleted = true;
-        } else {
-            assert!(chart.jp_lv.is_some());
-            chart.jp_lv = None;
-        }
-    }
-
     // Add manual constant info
     let file = File::open("data/maimai-manual-add.txt")?;
     let lines = BufReader::new(file).lines();
@@ -856,6 +843,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         assert_eq!(line.len(), 5);
         let title = line[0];
         let chart = charts.get_mut(title).unwrap();
+        chart.deleted = false;
         let inner = if line[3] == "JP" {
             chart.jp_lv.as_mut()
         } else if line[3] == "IN" {
@@ -908,6 +896,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             let diff_str = inner.lv(diff_idx);
             assert_eq!(diff_str, "?");
             inner.set_lv(diff_idx, line[4].to_string());
+        }
+    }
+
+    // Jp deleted songs.
+    let file = File::open("data/jp-del.txt")?;
+    for title in BufReader::new(file).lines().flatten() {
+        let chart = charts.get_mut(&title).unwrap();
+        if chart.intl_lv.is_none() {
+            assert!(!chart.deleted, "{}", title);
+            chart.deleted = true;
+        } else {
+            assert!(chart.jp_lv.is_some());
+            chart.jp_lv = None;
         }
     }
 

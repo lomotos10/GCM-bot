@@ -31,7 +31,10 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 /mai-info bbb
 @GCM-bot mai-info 3 seconds until dawn
 
-**WIP:** Chunithm and Ongeki support
+**Command names:**
+`mai-info` `chuni-info` `ongeki-info`
+`mai-jacket` `chuni-jacket` `ongeki-jacket`
+and a few others!
 
 For detailed info or bug reports or suggestions,
 please refer to <https://github.com/lomotos10/GCM-bot>";
@@ -54,7 +57,9 @@ async fn help_kr(ctx: Context<'_>) -> Result<(), Error> {
 /mai-info 브브브
 @GCM-bot mai-info 새벽까지 앞으로 3초
 
-**개발 예정:** 츄니즘, 온게키 지원
+**명령어 종류:**
+`mai-info` `chuni-info` `ongeki-info`
+`mai-jacket` `chuni-jacket` `ongeki-jacket`
 
 한글 곡제목 건의, 상세 사용법, 버그 리포트를 위해서는
 다음 링크를 참조해주세요: <https://github.com/lomotos10/GCM-bot/blob/main/README-kr.md>";

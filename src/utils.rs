@@ -259,7 +259,7 @@ where
         let namem1 = title.to_lowercase();
         let a = lowercased.insert(namem1.to_string(), title.to_string());
         if let Some(a) = a {
-            println!(
+            eprintln!(
                 "Alias-1 {} (for {}) shadowed by same alias-1 for {}",
                 namem1, a, title
             );
@@ -268,7 +268,7 @@ where
         let name0 = title.to_lowercase().split_whitespace().collect::<String>();
         let a = lowercased_and_unspaced.insert(name0.to_string(), title.to_string());
         if let Some(a) = a {
-            println!(
+            eprintln!(
                 "Alias0 {} (for {}) shadowed by same alias0 for {}",
                 name0, a, title
             );
@@ -281,7 +281,7 @@ where
         if !name1.is_empty() {
             let a = alphanumeric_only.insert(name1.to_string(), title.to_string());
             if let Some(a) = a {
-                println!(
+                eprintln!(
                     "Alias1 {} (for {}) shadowed by same alias1 for {}",
                     name1, a, title
                 );
@@ -292,7 +292,7 @@ where
         if !name2.is_empty() {
             let a = alphanumeric_and_ascii.insert(name2.to_string(), title.to_string());
             if let Some(a) = a {
-                println!(
+                eprintln!(
                     "Alias2 {} (for {}) shadowed by same alias2 for {}",
                     name2, a, title
                 );
@@ -330,7 +330,7 @@ where
                         .insert(nick.to_string(), title.to_string());
                     if let Some(a) = a {
                         if a != title {
-                            println!(
+                            eprintln!(
                                 "Alias2 {} (for {}) shadowed by same alias2 for {}",
                                 nick, a, title
                             );
@@ -345,7 +345,7 @@ where
                     let a = nicknames_alphanumeric_only.insert(nick.to_string(), title.to_string());
                     if let Some(a) = a {
                         if a != title {
-                            println!(
+                            eprintln!(
                                 "Alias3 {} (for {}) shadowed by same alias3 for {}",
                                 nick, a, title
                             );
@@ -358,7 +358,7 @@ where
                         .insert(nick.to_string(), title.to_string());
                     if let Some(a) = a {
                         if a != title {
-                            println!(
+                            eprintln!(
                                 "Alias4 {} (for {}) shadowed by same alias4 for {}",
                                 nick, a, title
                             );
@@ -374,7 +374,7 @@ where
         if lowercased.contains_key(name0) {
             // Don't delete this; it's for actual debugging!
             if title != &lowercased_and_unspaced[name0] {
-                println!(
+                eprintln!(
                     "Alias0 {} (for {}) shadowed by same alias-1 for {}",
                     name0, title, lowercased_and_unspaced[name0]
                 );
@@ -385,7 +385,7 @@ where
         if lowercased_and_unspaced.contains_key(name1) {
             // Don't delete this; it's for actual debugging!
             if title != &lowercased_and_unspaced[name1] {
-                println!(
+                eprintln!(
                     "Alias1 {} (for {}) shadowed by same alias0 for {}",
                     name1, title, lowercased_and_unspaced[name1]
                 );
@@ -396,7 +396,7 @@ where
         if alphanumeric_only.contains_key(name2) {
             // Don't delete this; it's for actual debugging!
             if title != &alphanumeric_only[name2] {
-                println!(
+                eprintln!(
                     "Alias2 {} (for {}) shadowed by same alias1 for {}",
                     name2, title, alphanumeric_only[name2]
                 );
@@ -407,7 +407,7 @@ where
         if alphanumeric_and_ascii.contains_key(nick) {
             // Don't delete this; it's for actual debugging!
             if title != &alphanumeric_and_ascii[nick] {
-                println!(
+                eprintln!(
                     "Alias3 {} (for {}) shadowed by same alias2 for {}",
                     nick, title, alphanumeric_and_ascii[nick]
                 );
@@ -418,7 +418,7 @@ where
         if alphanumeric_only.contains_key(nick) {
             // Don't delete this; it's for actual debugging!
             if title != &alphanumeric_only[nick] {
-                println!(
+                eprintln!(
                     "Alias3 {} (for {}) shadowed by same alias2 for {}",
                     nick, title, alphanumeric_only[nick]
                 );

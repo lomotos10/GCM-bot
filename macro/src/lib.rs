@@ -214,7 +214,7 @@ Did you mean **{{}}** (for **{{}}**)?\",
             let is_slash_command = matches!(&ctx, poise::Context::Application(_));
             ctx.send(|f| {{
                 f.ephemeral(is_slash_command).content(format!(
-                    \"Channel cooldown: please wait {{}} seconds and try again.\",
+                    \"Channel cooldown: please wait {{}} seconds and try again, or try the #bot-commands channel for no cooldown.\",
                     t
                 ))
             }})
@@ -225,7 +225,7 @@ Did you mean **{{}}** (for **{{}}**)?\",
             if let poise::Context::Application(_) = &ctx {{
                 ctx.send(|f| {{
                     f.ephemeral(true).content(format!(
-                        \"User cooldown: please wait {{}} seconds and try again.\",
+                        \"Channel cooldown: please wait {{}} seconds and try again, or try the #bot-commands channel for no cooldown.\",
                         t
                     ))
                 }})
