@@ -1,6 +1,8 @@
 # GCM-bot: A chart info bot for GekiChuMai!
 
-Invite link: https://discord.com/api/oauth2/authorize?client_id=986651489529397279&permissions=2147502080&scope=applications.commands%20bot
+[Invite link](https://discord.com/api/oauth2/authorize?client_id=986651489529397279&permissions=2147502080&scope=applications.commands%20bot)
+
+[Update notes](https://twitter.com/GCM_bot)
 
 ## Usage
 

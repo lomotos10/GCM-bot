@@ -38,7 +38,9 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 and a few others!
 
 For detailed info or bug reports or suggestions,
-please refer to <https://github.com/lomotos10/GCM-bot>";
+please refer to <https://github.com/lomotos10/GCM-bot>
+
+Update notes are here: <https://twitter.com/GCM_bot>";
     ctx.say(help).await?;
     Ok(())
 }
