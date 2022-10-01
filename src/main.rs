@@ -1,7 +1,8 @@
 use poise::serenity_prelude::{self as serenity, ChannelId, GuildId};
+use std::io::Write;
 use std::{
     collections::{HashMap, HashSet},
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::{BufRead, BufReader},
     sync::Arc,
 };
@@ -75,6 +76,56 @@ async fn how_to_improve(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+/// Manually add song alias
+#[poise::command(slash_command, prefix_command, rename = "add-alias")]
+async fn add_alias(
+    ctx: Context<'_>,
+    #[description = "The game that you're trying to add the alias to"] game: Game,
+    #[description = "The actual title of the song - you can use an existing alias"]
+    song_title: String,
+    #[description = "The alias that you're adding"] alias: String,
+) -> Result<(), Error> {
+    let (aliases, manual_aliases) = match game {
+        Game::Maimai => (
+            &ctx.data().mai_aliases,
+            &ctx.data().manual_alias_file_maimai,
+        ),
+        Game::Chunithm => (
+            &ctx.data().chuni_aliases,
+            &ctx.data().manual_alias_file_chuni,
+        ),
+        Game::Ongeki => (
+            &ctx.data().ongeki_aliases,
+            &ctx.data().manual_alias_file_ongeki,
+        ),
+    };
+    let text = if let Some(title) = get_title(&song_title, aliases) {
+        {
+            let mut f = manual_aliases.lock().await;
+            writeln!(f, "{}\t{}", title, alias)?;
+        }
+        {
+            let mut log = ctx.data().alias_log.lock().await;
+            writeln!(
+                log,
+                "{:?}\t{}\t{}\t{}",
+                game,
+                title,
+                alias,
+                ctx.author().name
+            )?;
+        }
+        format!("Alias \"{}\" for song \"{}\" has been submitted!\nThe change will take place at 10AM KST, so please wait until then. Thank you!", alias, title)
+    } else {
+        format!(
+            "Cannot find the song \"{}\"; please recheck and try again.",
+            song_title
+        )
+    };
+    ctx.send(|f| f.ephemeral(true).content(text)).await?;
+    Ok(())
+}
+
 #[poise::command(prefix_command)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
@@ -92,6 +143,7 @@ async fn main() {
                 chuni_jacket(),
                 ongeki_info(),
                 ongeki_jacket(),
+                add_alias(),
                 help(),
                 help_kr(),
                 how_to_improve(),
@@ -138,6 +190,25 @@ async fn main() {
                     chrono::prelude::Utc::now()
                 ))?));
 
+                let manual_alias_file_maimai = Arc::new(Mutex::new(
+                    OpenOptions::new()
+                        .append(true)
+                        .open("data/aliases/manual/maimai.tsv")
+                        .unwrap(),
+                ));
+                let manual_alias_file_chuni = Arc::new(Mutex::new(
+                    OpenOptions::new()
+                        .append(true)
+                        .open("data/aliases/manual/chuni.tsv")
+                        .unwrap(),
+                ));
+                let manual_alias_file_ongeki = Arc::new(Mutex::new(
+                    OpenOptions::new()
+                        .append(true)
+                        .open("data/aliases/manual/ongeki.tsv")
+                        .unwrap(),
+                ));
+
                 Ok(Data {
                     mai_charts,
                     mai_aliases,
@@ -148,6 +219,10 @@ async fn main() {
 
                     ongeki_charts,
                     ongeki_aliases,
+
+                    manual_alias_file_maimai,
+                    manual_alias_file_chuni,
+                    manual_alias_file_ongeki,
 
                     cooldown_server_ids,
                     cooldown_channel_exception_ids,

@@ -20,6 +20,16 @@ pub const CHANNEL_COOLDOWN: i64 = 300;
 
 type Maps = (HashMap<UserId, i64>, HashMap<ChannelId, i64>);
 
+#[derive(Debug, poise::ChoiceParameter)]
+pub enum Game {
+    #[name = "maimai"]
+    Maimai,
+    #[name = "CHUNITHM"]
+    Chunithm,
+    #[name = "O.N.G.E.K.I."]
+    Ongeki,
+}
+
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pub mai_charts: HashMap<String, MaiInfo>,
@@ -31,6 +41,10 @@ pub struct Data {
 
     pub ongeki_charts: HashMap<String, OngekiInfo>,
     pub ongeki_aliases: Aliases,
+
+    pub manual_alias_file_maimai: Arc<Mutex<File>>,
+    pub manual_alias_file_chuni: Arc<Mutex<File>>,
+    pub manual_alias_file_ongeki: Arc<Mutex<File>>,
 
     pub cooldown_server_ids: HashSet<GuildId>,
     pub cooldown_channel_exception_ids: HashSet<ChannelId>,
@@ -96,15 +110,15 @@ impl Difficulty {
     #[allow(dead_code)]
     pub fn get_constant(&self, idx: usize) -> Option<OrderedFloat<f32>> {
         if idx == 0 {
-            self.bas_c.clone()
+            self.bas_c
         } else if idx == 1 {
-            self.adv_c.clone()
+            self.adv_c
         } else if idx == 2 {
-            self.exp_c.clone()
+            self.exp_c
         } else if idx == 3 {
-            self.mas_c.clone()
+            self.mas_c
         } else if idx == 4 {
-            self.extra_c.clone()
+            self.extra_c
         } else {
             panic!()
         }
