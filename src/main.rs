@@ -35,6 +35,7 @@ Method 2. @GCM-bot `command-name` `command-arguments`
 **Command names:**
 `mai-info` `chuni-info` `ongeki-info`
 `mai-jacket` `chuni-jacket` `ongeki-jacket`
+`add-alias`
 and a few others!
 
 For detailed info or bug reports or suggestions,
@@ -61,8 +62,9 @@ async fn help_kr(ctx: Context<'_>) -> Result<(), Error> {
 @GCM-bot mai-info 새벽까지 앞으로 3초
 
 **명령어 종류:**
-`mai-info` `chuni-info` `ongeki-info`
-`mai-jacket` `chuni-jacket` `ongeki-jacket`
+`mai-info` `chuni-info` `ongeki-info`: 보면 정보
+`mai-jacket` `chuni-jacket` `ongeki-jacket`: 자켓 출력
+`add-alias`: 별명 추가
 
 한글 곡제목 건의, 상세 사용법, 버그 리포트를 위해서는
 다음 링크를 참조해주세요: <https://github.com/lomotos10/GCM-bot/blob/main/README-kr.md>";

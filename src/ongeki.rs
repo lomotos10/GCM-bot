@@ -7,7 +7,8 @@ use std::{
 
 use poise::{
     serenity_prelude::{
-        self as serenity, AttachmentType, CreateActionRow, CreateButton, InteractionResponseType,
+        self as serenity, model::application::interaction::InteractionResponseType, AttachmentType,
+        CreateActionRow, CreateButton,
     },
     ReplyHandle,
 };
