@@ -8,7 +8,7 @@ use std::{
 use lazy_static::lazy_static;
 use poise::{
     serenity_prelude::{
-        self as serenity, model::application::interaction::InteractionResponseType, AttachmentType,
+        self as serenity, model::interactions::InteractionResponseType, AttachmentType,
         CreateActionRow, CreateButton,
     },
     ReplyHandle,
@@ -259,14 +259,15 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
                 ..Default::default()
             };
 
-            let data = charts.get_mut(&title).unwrap();
-            if let Some(intl_lv) = &mut (*data).intl_lv {
-                if let Some(ult) = song.get("lev_ul") {
-                    assert_eq!((*intl_lv).extra, None);
-                    (*intl_lv).extra = Some(serdest_to_string(ult));
+            if let Some(data) = charts.get_mut(&title) {
+                if let Some(intl_lv) = &mut (*data).intl_lv {
+                    if let Some(ult) = song.get("lev_ul") {
+                        assert_eq!((*intl_lv).extra, None);
+                        (*intl_lv).extra = Some(serdest_to_string(ult));
+                    }
+                } else {
+                    (*data).intl_lv = Some(intl_lv);
                 }
-            } else {
-                (*data).intl_lv = Some(intl_lv);
             }
         } else {
             // WORLD'S END item; TODO implement
@@ -295,7 +296,16 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         let elem = if let Some(v) = elem {
             v
         } else {
-            charts.get_mut(&INTL_VIEWER_REPLACEMENT[&title]).unwrap()
+            let replacement = if let Some(r) = INTL_VIEWER_REPLACEMENT.get(&title) {
+                r
+            } else {
+                continue;
+            };
+            if let Some(s) = charts.get_mut(replacement) {
+                s
+            } else {
+                continue;
+            }
         };
         if diff == "EXP" {
             if let Some(lv) = song.get("constant") {

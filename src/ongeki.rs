@@ -7,7 +7,7 @@ use std::{
 
 use poise::{
     serenity_prelude::{
-        self as serenity, model::application::interaction::InteractionResponseType, AttachmentType,
+        self as serenity, model::interactions::InteractionResponseType, AttachmentType,
         CreateActionRow, CreateButton,
     },
     ReplyHandle,
@@ -340,6 +340,8 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
         panic!()
     };
 
+    println!("{:#?}", songs);
+
     for song in songs {
         let song = if let serde_json::Value::Object(m) = song {
             m
@@ -385,10 +387,20 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
         assert!(date >= 20180726);
 
         if charts.get(&title).is_some() {
-            // LUNATIC items have empty level items
-            assert_eq!(serdest_to_string(song.get("lev_bas").unwrap()), "");
-            let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
-            (*diff).extra = Some(serdest_to_string(song.get("lev_lnt").unwrap()))
+            if serdest_to_string(song.get("lev_bas").unwrap()) == "" {
+                // 1. LUNATIC added to normal chart - items have empty level items
+                assert_eq!(serdest_to_string(song.get("lev_bas").unwrap()), "");
+                let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
+                (*diff).extra = Some(serdest_to_string(song.get("lev_lnt").unwrap()))
+            } else {
+                // 2. Normal chart added to lunatic - items have empty lunatic item
+                assert_eq!(serdest_to_string(song.get("lev_lnt").unwrap()), "");
+                let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
+                (*diff).bas = serdest_to_string(song.get("lev_bas").unwrap());
+                (*diff).adv = serdest_to_string(song.get("lev_adv").unwrap());
+                (*diff).exp = serdest_to_string(song.get("lev_exc").unwrap());
+                (*diff).mas = serdest_to_string(song.get("lev_mas").unwrap());
+            }
         } else {
             charts.insert(
                 title.clone(),

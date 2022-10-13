@@ -36,7 +36,8 @@ pub fn jacket_template(tokens: TokenStream) -> TokenStream {
         drop(log);
         let reply = format!(
             \"I couldn't find the results for **{{}}**;
-Did you mean **{{}}** (for **{{}}**)?\",
+Did you mean **{{}}** (for **{{}}**)?
+(P.S. You can also use the `/add-alias` command to add this alias to the bot.)\",
             title, closest.0, closest.1
         );
         let sent = ctx
@@ -141,7 +142,8 @@ pub fn info_template(tokens: TokenStream) -> TokenStream {
         let closest = get_closest_title(&title, &ctx.data().{}_aliases);
         let reply = format!(
             \"I couldn't find the results for **{{}}**;
-Did you mean **{{}}** (for **{{}}**)?\",
+Did you mean **{{}}** (for **{{}}**)?
+(P.S. You can also use the `/add-alias` command to add this alias to the bot.)\",
             title, closest.0, closest.1
         );
         let sent = ctx
