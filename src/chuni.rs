@@ -18,27 +18,29 @@ use crate::utils::*;
 use gcm_macro::{info_template, jacket_template};
 
 lazy_static! {
-    static ref INTL_VIEWER_REPLACEMENT: HashMap<String, String> = {
+    static ref CHUNI_INFO_REPLACEMENT: HashMap<String, String> = {
         [
-            ("セイクリッド ルイン", "セイクリッド　ルイン"),
-            (
-                "Bad Apple!! feat.nomico(REDALiCE Remix)",
-                "Bad Apple!! feat.nomico (REDALiCE Remix)",
-            ),
-            (
-                "Satellite System ft. Diana Chiaki",
-                "Satellite System ft.Diana Chiaki",
-            ),
-            ("妖々跋扈～Who done it!!!", "妖々跋扈　～ Who done it！！！"),
-            ("DAZZLING♡SEAZON", "DAZZLING♡SEASON"),
-            ("The EmpErroR", "the EmpErroR"),
-            ("SQUAD-phvntom-", "SQUAD-Phvntom-"),
-            ("ピアノ協奏曲第1番\"蠍火\"", "ピアノ協奏曲第１番”蠍火”"),
-            ("Iudicium \"Apocalypsis Mix\"", "Iudicium “Apocalypsis Mix”"),
-            (
-                "ナイト・オブ・ナイツ(かめりあ's \"ワンス・アポン・ア・ナイト\"Remix)",
-                "ナイト・オブ・ナイツ (かめりあ’s“ワンス・アポン・ア・ナイト”Remix)",
-            ),
+            ("Reach for the Stars", "Reach For The Stars"),
+            ("まっすぐ→→→ストリーム!", "まっすぐ→→→ストリーム！")
+            // ("セイクリッド ルイン", "セイクリッド　ルイン"),
+            // (
+            //     "Bad Apple!! feat.nomico(REDALiCE Remix)",
+            //     "Bad Apple!! feat.nomico (REDALiCE Remix)",
+            // ),
+            // (
+            //     "Satellite System ft. Diana Chiaki",
+            //     "Satellite System ft.Diana Chiaki",
+            // ),
+            // ("妖々跋扈～Who done it!!!", "妖々跋扈　～ Who done it！！！"),
+            // ("DAZZLING♡SEAZON", "DAZZLING♡SEASON"),
+            // ("The EmpErroR", "the EmpErroR"),
+            // ("SQUAD-phvntom-", "SQUAD-Phvntom-"),
+            // ("ピアノ協奏曲第1番\"蠍火\"", "ピアノ協奏曲第１番”蠍火”"),
+            // ("Iudicium \"Apocalypsis Mix\"", "Iudicium “Apocalypsis Mix”"),
+            // (
+            //     "ナイト・オブ・ナイツ(かめりあ's \"ワンス・アポン・ア・ナイト\"Remix)",
+            //     "ナイト・オブ・ナイツ (かめりあ’s“ワンス・アポン・ア・ナイト”Remix)",
+            // ),
         ]
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -52,6 +54,11 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     let song = song.unwrap();
 
     let mut description = format!("**Artist:** {}", song.artist.replace('*', "\\*"));
+    description = if let Some(bpm) = song.bpm {
+        format!("{}\nBPM: {}", description, bpm)
+    } else {
+        description
+    };
 
     // let in_lv = &song.intl_lv;
     let jp_lv = &song.jp_lv;
@@ -275,8 +282,10 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     }
 
     // Get constants
-    let intl_viewer = fs::read_to_string("chuni_intl_viewer/chartConstant.json")?;
-    let songs: serde_json::Value = serde_json::from_str(&intl_viewer).unwrap();
+    let constants = fs::read_to_string("data/chuni-info.txt")?;
+    let url = constants.trim();
+    let s = get_curl(url);
+    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
     let songs = if let serde_json::Value::Array(s) = songs {
         s
     } else {
@@ -289,89 +298,32 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             panic!()
         };
 
-        let title = serdest_to_string(song.get("name").unwrap());
-        let diff = serdest_to_string(song.get("difficulty").unwrap());
+        let meta = song.get("meta").unwrap().as_object().unwrap();
+        let title = meta["title"].as_str().unwrap().to_string();
 
-        let elem = charts.get_mut(&title);
-        let elem = if let Some(v) = elem {
-            v
-        } else {
-            let replacement = if let Some(r) = INTL_VIEWER_REPLACEMENT.get(&title) {
-                r
-            } else {
+        // skip WE
+        if meta["genre"] == "WORLD'S END" {
+            continue;
+        }
+
+        let title = CHUNI_INFO_REPLACEMENT.get(&title).unwrap_or(&title);
+        // Redundant unwrap is for checking if bpm integer
+        let bpm = meta["bpm"].as_u64().unwrap();
+        let chart = charts.get_mut(title).unwrap();
+        chart.bpm = if bpm == 0 { None } else { Some(bpm as usize) };
+
+        let diffs = song["data"].as_object().unwrap();
+        let difficulty = chart.jp_lv.as_mut().unwrap();
+        for (diff, data) in diffs.iter() {
+            let diff_c = diff_to_idx(diff);
+            let data = data.as_object().unwrap();
+            if data.get("const") == None {
                 continue;
-            };
-            if let Some(s) = charts.get_mut(replacement) {
-                s
-            } else {
-                continue;
             }
-        };
-        if diff == "EXP" {
-            if let Some(lv) = song.get("constant") {
-                let lv = &serdest_to_string(lv);
-                if let Some(intl_lv) = (*elem).intl_lv.as_mut() {
-                    intl_lv.exp_c = float_to_constant(lv);
-                    if intl_lv.exp == "?" {
-                        intl_lv.exp = float_to_chuni_level(lv);
-                    } else {
-                        assert_eq!(intl_lv.exp, float_to_chuni_level(lv));
-                    }
-                } else {
-                    (*elem).intl_lv = Some(Difficulty {
-                        exp: float_to_chuni_level(lv),
-                        exp_c: float_to_constant(lv),
-                        ..Default::default()
-                    });
-                }
+            let c = data["const"].as_f64().unwrap();
+            if c != 0.0 && data["is_const_unknown"].as_u64().unwrap() == 0 {
+                difficulty.set_constant(diff_c, c.to_string());
             }
-            if let Some(lv) = song.get("constant_new_plus") {
-                (*elem).jp_lv.as_mut().unwrap().exp_c = float_to_constant(&serdest_to_string(lv));
-            }
-        } else if diff == "MAS" {
-            if let Some(lv) = song.get("constant") {
-                let lv = &serdest_to_string(lv);
-                if let Some(intl_lv) = (*elem).intl_lv.as_mut() {
-                    intl_lv.mas_c = float_to_constant(lv);
-                    if intl_lv.mas == "?" {
-                        intl_lv.mas = float_to_chuni_level(lv);
-                    } else {
-                        assert_eq!(intl_lv.mas, float_to_chuni_level(lv));
-                    }
-                } else {
-                    (*elem).intl_lv = Some(Difficulty {
-                        mas: float_to_chuni_level(lv),
-                        mas_c: float_to_constant(lv),
-                        ..Default::default()
-                    });
-                }
-            }
-            if let Some(lv) = song.get("constant_new_plus") {
-                (*elem).jp_lv.as_mut().unwrap().mas_c = float_to_constant(&serdest_to_string(lv));
-            }
-        } else if diff == "ULT" {
-            if let Some(lv) = song.get("constant") {
-                let lv = &serdest_to_string(lv);
-                if let Some(intl_lv) = (*elem).intl_lv.as_mut() {
-                    intl_lv.extra_c = float_to_constant(lv);
-                    if intl_lv.extra == None {
-                        intl_lv.extra = Some(float_to_chuni_level(lv));
-                    } else {
-                        assert_eq!(intl_lv.extra, Some(float_to_chuni_level(lv)));
-                    }
-                } else {
-                    (*elem).intl_lv = Some(Difficulty {
-                        extra: Some(float_to_chuni_level(lv)),
-                        extra_c: float_to_constant(lv),
-                        ..Default::default()
-                    });
-                }
-            }
-            if let Some(lv) = song.get("constant_new_plus") {
-                (*elem).jp_lv.as_mut().unwrap().extra_c = float_to_constant(&serdest_to_string(lv));
-            }
-        } else {
-            unimplemented!()
         }
     }
     Ok(charts)

@@ -554,21 +554,21 @@ pub async fn check_cooldown(ctx: &Context<'_>) -> Cooldown {
     Cooldown::None
 }
 
-///
+/// Return corresponding index to difficulty - BASIC = 0, ADVANCED = 1, ...
 pub fn diff_to_idx(diff: &str) -> usize {
     let strs = [
         vec!["BAS", "Basic"],
         vec!["ADV", "Advanced"],
         vec!["EXP", "Expert"],
         vec!["MAS", "Master"],
-        vec!["REM", "Lunatic"],
+        vec!["REM", "Lunatic", "ULT"],
     ];
     for (i, st) in strs.iter().enumerate() {
         if st.contains(&diff) {
             return i;
         }
     }
-    panic!();
+    panic!("{}", diff);
 }
 
 /////////////////////// maimai utils ///////////////////////
@@ -612,22 +612,20 @@ pub struct ChuniInfo {
     pub jp_jacket: Option<String>,
     pub title: String,
     pub artist: String,
-    // pub bpm: Option<usize>,
-    // pub dx_sheets: Vec<MaiSheet>,
-    // pub st_sheets: Vec<MaiSheet>,
+    pub bpm: Option<usize>,
     // pub version: Option<String>,
 }
 
-pub fn float_to_chuni_level(f: &str) -> String {
-    let f = f.parse::<f32>().unwrap().abs();
-    let decimal = f - f.floor();
+// pub fn float_to_chuni_level(f: &str) -> String {
+//     let f = f.parse::<f32>().unwrap().abs();
+//     let decimal = f - f.floor();
 
-    if decimal < 0.45 {
-        f.floor().to_string()
-    } else {
-        format!("{}+", f.floor())
-    }
-}
+//     if decimal < 0.45 {
+//         f.floor().to_string()
+//     } else {
+//         format!("{}+", f.floor())
+//     }
+// }
 
 /////////////////////// ongeki utils ///////////////////////
 
