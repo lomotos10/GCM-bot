@@ -7,6 +7,7 @@
 !/data/jp-del.txt
 !/data/intl-del.txt
 !/data/intl-add.txt
+!/data/chuni-intl-del.txt
 /*.sh
 /*.csv
 /macro/target
