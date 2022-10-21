@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
-    fs::{self},
-    io::Write,
+    fs::{self, File},
+    io::{BufRead, BufReader, Write},
     time::Duration,
 };
 
@@ -60,7 +60,7 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
         description
     };
 
-    // let in_lv = &song.intl_lv;
+    let in_lv = &song.intl_lv;
     let jp_lv = &song.jp_lv;
 
     let jp_txt = if let Some(jp_lv) = jp_lv {
@@ -68,35 +68,35 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     } else {
         "**Unreleased**".to_string()
     };
-    //     let in_txt = if let Some(in_lv) = in_lv {
-    //         level_description(in_lv)
-    //     } else {
-    //         "**Unreleased**".to_string()
-    //     };
-    //     if in_txt == jp_txt {
-    //         description = format!(
-    //             "{}
+    let in_txt = if let Some(in_lv) = in_lv {
+        level_description(in_lv, &title)
+    } else {
+        "**Unreleased**".to_string()
+    };
+    if in_txt == jp_txt {
+        description = format!(
+            "{}
 
-    // **Level:**
-    // :flag_jp::globe_with_meridians: {}",
-    //             description, jp_txt
-    //         );
-    //     } else {
-    //         description = format!(
-    //             "{}
+**Level:**
+:flag_jp::globe_with_meridians: {}",
+            description, jp_txt
+        );
+    } else {
+        description = format!(
+            "{}
 
-    // **Level:**
-    // :flag_jp: {}
-    // :globe_with_meridians: {}",
-    //             description, jp_txt, in_txt
-    //         );
-    //     }
-    description = format!(
-        "{}
+**Level:**
+:flag_jp: {}
+:globe_with_meridians: {}",
+            description, jp_txt, in_txt
+        );
+    }
+    //     description = format!(
+    //         "{}
 
-**Level:** {}",
-        description, jp_txt
-    );
+    // **Level:** {}",
+    //         description, jp_txt
+    //     );
 
     Ok((description, song.jp_jacket.clone()))
 }
@@ -326,5 +326,49 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             }
         }
     }
+
+    // Add intl del info
+    let file = File::open("data/chuni-intl-del.txt")?;
+    let intl_del = BufReader::new(file).lines().flatten().collect::<Vec<_>>();
+
+    // Add intl level info
+    let file = File::open("chuni-new-plus-lv.csv")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let line = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(line.len(), 4);
+        let title = line[0];
+        if intl_del.contains(&title.to_string()) {
+            continue;
+        }
+        let chart = charts.get_mut(title).unwrap();
+        if chart.intl_lv.is_none() {
+            chart.intl_lv = Some(Difficulty::default());
+        }
+        let inner = chart.intl_lv.as_mut().unwrap();
+        // Add level
+        let diff_idx = diff_to_idx(line[2]);
+        // let diff_str = inner.lv(diff_idx);
+        // assert_eq!(diff_str, "?");
+        inner.set_lv(diff_idx, line[3].to_string());
+    }
+
+    // Add intl constant info
+    let file = File::open("chuni-new-plus-cst.csv")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let line = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(line.len(), 4);
+        let title = line[0];
+        if intl_del.contains(&title.to_string()) {
+            continue;
+        }
+        let chart = charts.get_mut(title).unwrap();
+        let inner = chart.intl_lv.as_mut().unwrap();
+        let cst = float_to_constant(line[3]);
+        let diff_idx = diff_to_idx(line[2]);
+        inner.set_constant(diff_idx, cst.unwrap().to_string());
+    }
+
     Ok(charts)
 }

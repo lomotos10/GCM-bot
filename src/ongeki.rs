@@ -387,7 +387,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
         assert!(date >= 20180726);
 
         if charts.get(&title).is_some() {
-            if serdest_to_string(song.get("lev_bas").unwrap()) == "" {
+            if serdest_to_string(song.get("lev_bas").unwrap()).is_empty() {
                 // 1. LUNATIC added to normal chart - items have empty level items
                 assert_eq!(serdest_to_string(song.get("lev_bas").unwrap()), "");
                 let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();

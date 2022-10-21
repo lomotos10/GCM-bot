@@ -557,11 +557,11 @@ pub async fn check_cooldown(ctx: &Context<'_>) -> Cooldown {
 /// Return corresponding index to difficulty - BASIC = 0, ADVANCED = 1, ...
 pub fn diff_to_idx(diff: &str) -> usize {
     let strs = [
-        vec!["BAS", "Basic"],
-        vec!["ADV", "Advanced"],
-        vec!["EXP", "Expert"],
-        vec!["MAS", "Master"],
-        vec!["REM", "Lunatic", "ULT"],
+        vec!["BAS", "Basic", "basic"],
+        vec!["ADV", "Advanced", "advanced"],
+        vec!["EXP", "Expert", "expert"],
+        vec!["MAS", "Master", "master"],
+        vec!["REM", "Lunatic", "ULT", "ultima"],
     ];
     for (i, st) in strs.iter().enumerate() {
         if st.contains(&diff) {
@@ -586,7 +586,7 @@ pub struct MaiInfo {
     pub jp_jacket: Option<String>,
     pub title: String,
     pub artist: String,
-    pub bpm: Option<usize>,
+    pub bpm: Option<OrderedFloat<f64>>,
     pub dx_sheets: Vec<MaiSheet>,
     pub st_sheets: Vec<MaiSheet>,
     pub version: Option<String>,
@@ -613,7 +613,7 @@ pub struct ChuniInfo {
     pub title: String,
     pub artist: String,
     pub bpm: Option<usize>,
-    // pub version: Option<String>,
+    pub version: Option<String>,
 }
 
 // pub fn float_to_chuni_level(f: &str) -> String {

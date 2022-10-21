@@ -8,6 +8,7 @@ use std::{
 
 use gcm_macro::{info_template, jacket_template};
 use lazy_static::lazy_static;
+use ordered_float::OrderedFloat;
 use poise::{
     serenity_prelude::{
         self as serenity, model::interactions::InteractionResponseType, AttachmentType,
@@ -738,7 +739,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         let bpm = if bpm == Some(&serde_json::Value::Null) {
             None
         } else {
-            bpm.map(serdest_to_usize)
+            bpm.map(|b| OrderedFloat(b.as_f64().unwrap()))
         };
         let version = song.get("version");
         let version = if version == Some(&serde_json::Value::Null) {
