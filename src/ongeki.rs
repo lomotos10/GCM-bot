@@ -48,6 +48,7 @@ lazy_static::lazy_static! {
             ("HELLO，SOFMAP WORLD", "HELLO,SOFMAP WORLD"),
             ("妖々跋扈 ～ Who done it！", "妖々跋扈 ～ Who done it！！！"),
             ("Hand in Hand - livetune", "Hand in Hand (deleted)"),
+            ("３９", "39"),
         ]
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -334,13 +335,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     // Parse the string of data into serde_json::Value.
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
 
-    let songs = if let serde_json::Value::Array(s) = songs {
-        s
-    } else {
-        panic!()
-    };
-
-    println!("{:#?}", songs);
+    let songs = songs.as_array().unwrap();
 
     for song in songs {
         let song = if let serde_json::Value::Object(m) = song {
@@ -545,6 +540,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
         }
     }
 
+    // Get VS character level and element.
     let s = fs::read_to_string("data/ongeki-curl.html").unwrap();
     let dom = tl::parse(&s, tl::ParserOptions::default()).unwrap();
     let parser = dom.parser();
@@ -558,19 +554,21 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 a.as_tag()
                     .unwrap()
                     .attributes()
-                    .id()
+                    .class()
                     .map(|x| x.as_utf8_str()),
             )
         })
         .filter(|a| a.1.is_some())
         .map(|(a, b)| (a, b.unwrap()))
-        .filter(|a| a.1.contains("ui_wikidb_table"))
+        .filter(|a| a.1.contains("mu__table--scroll_inside"))
         .map(|a| a.0)
         .collect::<Vec<_>>();
 
     for (idx, node) in element.iter().enumerate() {
         let children = node.children().unwrap();
-        let node = children.top()[2].get(parser).unwrap();
+        let node = children.top()[0].get(parser).unwrap();
+        let children = node.children().unwrap();
+        let node = children.top()[3].get(parser).unwrap();
 
         let children = node.children().unwrap();
         let children = children
@@ -658,6 +656,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 title_lv.to_string()
             };
 
+            println!("{} {}", title_lv, title_lv2);
             let title_lv3 = if !charts.contains_key(&title_lv2) {
                 LV_SOURCE_REPLACEMENT[title_lv].to_string()
             } else {

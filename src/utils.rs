@@ -561,7 +561,7 @@ pub fn diff_to_idx(diff: &str) -> usize {
         vec!["ADV", "Advanced", "advanced"],
         vec!["EXP", "Expert", "expert"],
         vec!["MAS", "Master", "master"],
-        vec!["REM", "Lunatic", "ULT", "ultima"],
+        vec!["REM", "Lunatic", "ULT", "ultima", "remaster"],
     ];
     for (i, st) in strs.iter().enumerate() {
         if st.contains(&diff) {

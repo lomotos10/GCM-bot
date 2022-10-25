@@ -54,8 +54,13 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     let song = song.unwrap();
 
     let mut description = format!("**Artist:** {}", song.artist.replace('*', "\\*"));
+    description = if let Some(version) = song.version.as_ref() {
+        format!("{}\n**Version:** {}", description, version)
+    } else {
+        description
+    };
     description = if let Some(bpm) = song.bpm {
-        format!("{}\nBPM: {}", description, bpm)
+        format!("{}\n**BPM:** {}", description, bpm)
     } else {
         description
     };
@@ -286,42 +291,46 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     let url = constants.trim();
     let s = get_curl(url);
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
-    let songs = if let serde_json::Value::Array(s) = songs {
-        s
-    } else {
-        panic!()
-    };
+    let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
     for song in songs {
-        let song = if let serde_json::Value::Object(m) = song {
-            m
-        } else {
-            panic!()
-        };
+        let song = song.as_object().unwrap();
 
-        let meta = song.get("meta").unwrap().as_object().unwrap();
+        let meta = song;
         let title = meta["title"].as_str().unwrap().to_string();
 
         // skip WE
-        if meta["genre"] == "WORLD'S END" {
+        if meta["category"] == "WORLD'S END" {
             continue;
         }
 
         let title = CHUNI_INFO_REPLACEMENT.get(&title).unwrap_or(&title);
-        // Redundant unwrap is for checking if bpm integer
-        let bpm = meta["bpm"].as_u64().unwrap();
-        let chart = charts.get_mut(title).unwrap();
-        chart.bpm = if bpm == 0 { None } else { Some(bpm as usize) };
+        let bpm = meta["bpm"].as_u64();
+        let chart = charts.get_mut(title);
+        let chart = if let Some(c) = chart {
+            c
+        } else {
+            // deleted song; todo
+            continue;
+        };
+        chart.bpm = bpm.map(|i| i as usize);
+        if let Some(version) = meta["version"].as_str() {
+            chart.version = Some(version.to_string());
+        }
 
-        let diffs = song["data"].as_object().unwrap();
+        let diffs = song["sheets"].as_array().unwrap();
         let difficulty = chart.jp_lv.as_mut().unwrap();
-        for (diff, data) in diffs.iter() {
-            let diff_c = diff_to_idx(diff);
+        for data in diffs.iter() {
             let data = data.as_object().unwrap();
-            if data.get("const") == None {
+            let diff_c = diff_to_idx(data["difficulty"].as_str().unwrap());
+            if data.get("internalLevelValue") == None {
                 continue;
             }
-            let c = data["const"].as_f64().unwrap();
-            if c != 0.0 && data["is_const_unknown"].as_u64().unwrap() == 0 {
+            let c = if let Some(c) = data["internalLevelValue"].as_f64() {
+                c
+            } else {
+                continue;
+            };
+            if c != 0.0 {
                 difficulty.set_constant(diff_c, c.to_string());
             }
         }
