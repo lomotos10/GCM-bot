@@ -548,68 +548,6 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         }
     }
 
-    let file = File::open("data/intl-add.txt")?;
-    let reader = BufReader::new(file).lines();
-    for line in reader.flatten() {
-        let x = charts.insert(
-            line.clone(),
-            MaiInfo {
-                title: line.trim().to_string(),
-                ..Default::default()
-            },
-        );
-        assert!(x.is_none());
-    }
-
-    // deleted songs
-    let file = File::open("data/intl-del.txt")?;
-    let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
-        let tokens = line.split('\t').collect::<Vec<_>>();
-        if tokens.len() == 1 {
-            if tokens[0].is_empty() {
-                continue;
-            }
-            (*charts.get_mut(tokens[0]).unwrap()).intl_lv = None;
-        } else if tokens.len() == 2 {
-            let intl_lv = (*charts.get_mut(tokens[0]).unwrap())
-                .intl_lv
-                .as_mut()
-                .unwrap();
-            if tokens[1] == "DX" {
-                (*intl_lv).dx = None;
-            } else if tokens[1] == "ST" {
-                (*intl_lv).st = None;
-            } else {
-                unreachable!();
-            }
-        } else if tokens.len() > 2 {
-            let intl_lv = (*charts.get_mut(tokens[0]).unwrap())
-                .intl_lv
-                .as_mut()
-                .unwrap();
-            let target_lv = if tokens[1] == "DX" {
-                &mut intl_lv.dx
-            } else if tokens[1] == "ST" {
-                &mut intl_lv.st
-            } else {
-                unreachable!();
-            }
-            .as_mut()
-            .unwrap();
-            for token in &tokens[2..tokens.len()] {
-                if *token == "REM" {
-                    target_lv.extra = None;
-                    target_lv.extra_c = None;
-                } else {
-                    unreachable!();
-                }
-            }
-        } else {
-            unreachable!();
-        }
-    }
-
     // Get info DB
     let info = fs::read_to_string("data/maimai-info.txt")?;
     let info = info.trim();
@@ -685,12 +623,17 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         let mut dx_constants = vec![];
         let mut dx_levels = vec![];
         let mut st_levels = vec![];
+
+        let r = charts.get_mut(&title).unwrap();
+        
         for sheet in sheets {
             let sheet = if let serde_json::Value::Object(m) = sheet {
                 m
             } else {
                 panic!()
             };
+
+            // Get notes info.
             let notes = if let serde_json::Value::Object(m) = &sheet["noteCounts"] {
                 m
             } else {
@@ -714,7 +657,8 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     0
                 },
             };
-            if sheet["type"] == "dx" {
+            let dx_type = sheet["type"].as_str().unwrap();
+            if dx_type == "dx" {
                 dx_sheet_data.push(sheet_info);
                 dx_constants.push(match &sheet["internalLevel"] {
                     serde_json::Value::Null => None,
@@ -722,7 +666,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     _ => panic!("Unexpected value for sheet.internalLevel"),
                 });
                 dx_levels.push(sheet["level"].clone());
-            } else if sheet["type"] == "std" {
+            } else if dx_type == "std" {
                 st_sheet_data.push(sheet_info);
                 st_constants.push(match &sheet["internalLevel"] {
                     serde_json::Value::Null => None,
@@ -733,6 +677,84 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             } else {
                 panic!();
             }
+
+            // Get region info.
+            let regions = sheet["regions"].as_object().unwrap();
+            let jp_region = regions["jp"].as_bool().unwrap();
+            let intl_region = regions["intl"].as_bool().unwrap();
+
+            let diff_idx = diff_to_idx(sheet["difficulty"].as_str().unwrap());
+
+            // We assume Basic~Master has same region availability
+            if diff_idx == 0 {
+                // Basic (and everything else except Remas)
+                if !jp_region && !intl_region {
+                    // I don't think there'll be a case where only one of ST/DX chart gets deleted and the other stays.
+                    r.deleted = true;
+                } else {
+                    if !jp_region {
+                        if let Some(lv) = r.jp_lv.as_mut() {
+                            let lv = if dx_type == "dx" {
+                                &mut lv.dx
+                            } else if dx_type == "std" {
+                                &mut lv.st
+                            } else {
+                                panic!()
+                            };
+                            *lv = None;
+                        }
+                    }
+                    if !intl_region {
+                        if let Some(lv) = r.intl_lv.as_mut() {
+                            let lv = if dx_type == "dx" {
+                                &mut lv.dx
+                            } else if dx_type == "std" {
+                                &mut lv.st
+                            } else {
+                                panic!()
+                            };
+                            *lv = None;
+                        }
+                    }
+                }
+            } else if diff_idx == 4 {
+                // Remas
+                if !jp_region && !intl_region {
+                    // If song is deleted, this is already taken care of on the Basic~Master branch.
+                } else {
+                    if !jp_region {
+                        if let Some(lv) = r.jp_lv.as_mut() {
+                            let lv = if dx_type == "dx" {
+                                &mut lv.dx
+                            } else if dx_type == "std" {
+                                &mut lv.st
+                            } else {
+                                panic!()
+                            };
+                            if let Some(remas) = lv.as_mut() {
+                                remas.extra = None;
+                                remas.extra_c = None;
+                            }
+                        }
+                    }
+                    if !intl_region {
+                        if let Some(lv) = r.intl_lv.as_mut() {
+                            let lv = if dx_type == "dx" {
+                                &mut lv.dx
+                            } else if dx_type == "std" {
+                                &mut lv.st
+                            } else {
+                                panic!()
+                            };
+                            if let Some(remas) = lv.as_mut() {
+                                remas.extra = None;
+                                remas.extra_c = None;
+                            }
+                        }
+                    }
+                }
+            }
+
         }
 
         let bpm = song.get("bpm");
@@ -748,7 +770,6 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             version.map(serdest_to_string)
         };
 
-        let r = charts.get_mut(&title).unwrap();
         r.jp_jacket = Some(jp_jacket);
         r.bpm = bpm;
         r.dx_sheets = dx_sheet_data;
@@ -898,19 +919,6 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             let diff_str = inner.lv(diff_idx);
             assert_eq!(diff_str, "?");
             inner.set_lv(diff_idx, line[4].to_string());
-        }
-    }
-
-    // Jp deleted songs.
-    let file = File::open("data/jp-del.txt")?;
-    for title in BufReader::new(file).lines().flatten() {
-        let chart = charts.get_mut(&title).unwrap();
-        if chart.intl_lv.is_none() {
-            assert!(!chart.deleted, "{}", title);
-            chart.deleted = true;
-        } else {
-            assert!(chart.jp_lv.is_some());
-            chart.jp_lv = None;
         }
     }
 

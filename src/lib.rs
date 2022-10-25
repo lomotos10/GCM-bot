@@ -25,9 +25,6 @@ mod tests {
     #[test]
     fn full_test() {
         let files_not_urls = [
-            "data/intl-add.txt",
-            "data/intl-del.txt",
-            "data/jp-del.txt",
             "data/maimai-jacket-prefix.txt",
             "data/maimai-manual-add.txt",
             "jp_lv.csv",
