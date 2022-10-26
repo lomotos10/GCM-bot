@@ -38,6 +38,7 @@ pub struct Data {
 
     pub chuni_charts: HashMap<String, ChuniInfo>,
     pub chuni_aliases: Aliases,
+    pub chuni_jacket_prefix: String,
 
     pub ongeki_charts: HashMap<String, OngekiInfo>,
     pub ongeki_aliases: Aliases,
@@ -189,21 +190,6 @@ pub struct Aliases {
     pub nicknames_alphanumeric_and_ascii: HashMap<String, String>,
 }
 
-pub fn serdest_to_string(st: &serde_json::Value) -> String {
-    if let serde_json::Value::String(s) = st {
-        s.to_string()
-    } else {
-        panic!()
-    }
-}
-
-pub fn serdest_to_usize(st: &serde_json::Value) -> usize {
-    if let serde_json::Value::Number(s) = st {
-        s.as_u64().unwrap() as usize
-    } else {
-        panic!()
-    }
-}
 pub fn get_curl(url: &str) -> String {
     let mut data = Vec::new();
     let mut handle = curl::easy::Easy::new();
@@ -614,6 +600,7 @@ pub struct ChuniInfo {
     pub artist: String,
     pub bpm: Option<usize>,
     pub version: Option<String>,
+    pub deleted: bool,
 }
 
 // pub fn float_to_chuni_level(f: &str) -> String {

@@ -216,10 +216,11 @@ async fn main() {
                 Ok(Data {
                     mai_charts,
                     mai_aliases,
-                    mai_jacket_prefix: fs::read_to_string("data/maimai-jacket-prefix.txt")?,
+                    mai_jacket_prefix: fs::read_to_string("data/maimai/maimai-jacket-prefix.txt")?,
 
                     chuni_charts,
                     chuni_aliases,
+                    chuni_jacket_prefix: fs::read_to_string("data/chuni/chuni-jacket-prefix.txt")?,
 
                     ongeki_charts,
                     ongeki_aliases,

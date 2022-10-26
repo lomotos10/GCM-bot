@@ -344,23 +344,23 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
             panic!()
         };
 
-        let mut title = serdest_to_string(song.get("title").unwrap());
-        let artist = serdest_to_string(song.get("artist").unwrap());
-        let jacket = serdest_to_string(song.get("image_url").unwrap());
-        let date = serdest_to_string(song.get("date").unwrap());
-        let character = serdest_to_string(song.get("character").unwrap());
-        let category = serdest_to_string(song.get("category").unwrap());
+        let mut title = song["title"].as_str().unwrap().to_string();
+        let artist = song["artist"].as_str().unwrap().to_string();
+        let jacket = song["image_url"].as_str().unwrap().to_string();
+        let date = song["date"].as_str().unwrap().to_string();
+        let character = song["character"].as_str().unwrap().to_string();
+        let category = song["category"].as_str().unwrap().to_string();
         let lv = Difficulty {
-            bas: serdest_to_string(song.get("lev_bas").unwrap()),
-            adv: serdest_to_string(song.get("lev_adv").unwrap()),
-            exp: serdest_to_string(song.get("lev_exc").unwrap()),
-            mas: serdest_to_string(song.get("lev_mas").unwrap()),
+            bas: song["lev_bas"].as_str().unwrap().to_string(),
+            adv: song["lev_adv"].as_str().unwrap().to_string(),
+            exp: song["lev_exc"].as_str().unwrap().to_string(),
+            mas: song["lev_mas"].as_str().unwrap().to_string(),
             extra: if song.contains_key("lev_lnt") {
                 let lnt = song.get("lev_lnt").unwrap();
                 if lnt == "" {
                     None
                 } else {
-                    Some(serdest_to_string(lnt))
+                    Some(lnt.as_str().unwrap().to_string())
                 }
             } else {
                 None
@@ -382,19 +382,19 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
         assert!(date >= 20180726);
 
         if charts.get(&title).is_some() {
-            if serdest_to_string(song.get("lev_bas").unwrap()).is_empty() {
+            if song["lev_bas"].as_str().unwrap().to_string().is_empty() {
                 // 1. LUNATIC added to normal chart - items have empty level items
-                assert_eq!(serdest_to_string(song.get("lev_bas").unwrap()), "");
+                assert_eq!(song["lev_bas"].as_str().unwrap().to_string(), "");
                 let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
-                (*diff).extra = Some(serdest_to_string(song.get("lev_lnt").unwrap()))
+                (*diff).extra = Some(song["lev_lnt"].as_str().unwrap().to_string())
             } else {
                 // 2. Normal chart added to lunatic - items have empty lunatic item
-                assert_eq!(serdest_to_string(song.get("lev_lnt").unwrap()), "");
+                assert_eq!(song["lev_lnt"].as_str().unwrap().to_string(), "");
                 let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
-                (*diff).bas = serdest_to_string(song.get("lev_bas").unwrap());
-                (*diff).adv = serdest_to_string(song.get("lev_adv").unwrap());
-                (*diff).exp = serdest_to_string(song.get("lev_exc").unwrap());
-                (*diff).mas = serdest_to_string(song.get("lev_mas").unwrap());
+                (*diff).bas = song["lev_bas"].as_str().unwrap().to_string();
+                (*diff).adv = song["lev_adv"].as_str().unwrap().to_string();
+                (*diff).exp = song["lev_exc"].as_str().unwrap().to_string();
+                (*diff).mas = song["lev_mas"].as_str().unwrap().to_string();
             }
         } else {
             charts.insert(

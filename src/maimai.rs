@@ -238,26 +238,25 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             panic!()
         };
 
-        let title = serdest_to_string(song.get("title").unwrap());
+        let title = song["title"].as_str().unwrap().to_string();
         // Edge case handling for duplicate title
         let title =
-            if title == "Link" && serdest_to_string(song.get("catcode").unwrap()) == "maimai" {
+            if title == "Link" && song["catcode"].as_str().unwrap()  == "maimai" {
                 "Link (maimai)".to_string()
             } else {
                 title
             };
 
-        // let jp_jacket = serdest_to_string(song.get("image_url").unwrap());
-        let artist = serdest_to_string(song.get("artist").unwrap());
+        let artist = song["artist"].as_str().unwrap().to_string();
 
         let st_lv = if song.contains_key("lev_bas") {
             Some(Difficulty {
-                bas: serdest_to_string(song.get("lev_bas").unwrap()),
-                adv: serdest_to_string(song.get("lev_adv").unwrap()),
-                exp: serdest_to_string(song.get("lev_exp").unwrap()),
-                mas: serdest_to_string(song.get("lev_mas").unwrap()),
+                bas: song["lev_bas"].as_str().unwrap().to_string(),
+                adv: song["lev_adv"].as_str().unwrap().to_string(),
+                exp: song["lev_exp"].as_str().unwrap().to_string(),
+                mas: song["lev_mas"].as_str().unwrap().to_string(),
                 extra: if song.contains_key("lev_remas") {
-                    Some(serdest_to_string(song.get("lev_remas").unwrap()))
+                    Some(song["lev_remas"].as_str().unwrap().to_string())
                 } else {
                     None
                 },
@@ -268,12 +267,12 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         };
         let dx_lv = if song.contains_key("dx_lev_bas") {
             Some(Difficulty {
-                bas: serdest_to_string(song.get("dx_lev_bas").unwrap()),
-                adv: serdest_to_string(song.get("dx_lev_adv").unwrap()),
-                exp: serdest_to_string(song.get("dx_lev_exp").unwrap()),
-                mas: serdest_to_string(song.get("dx_lev_mas").unwrap()),
+                bas: song["dx_lev_bas"].as_str().unwrap().to_string(),
+                adv: song["dx_lev_adv"].as_str().unwrap().to_string(),
+                exp: song["dx_lev_exp"].as_str().unwrap().to_string(),
+                mas: song["dx_lev_mas"].as_str().unwrap().to_string(),
                 extra: if song.contains_key("dx_lev_remas") {
-                    Some(serdest_to_string(song.get("dx_lev_remas").unwrap()))
+                    Some(song["dx_lev_remas"].as_str().unwrap().to_string())
                 } else {
                     None
                 },
@@ -288,7 +287,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             dx: dx_lv,
         };
 
-        let order = serdest_to_string(song.get("sort").unwrap())
+        let order = song["sort"].as_str().unwrap()
             .parse::<usize>()
             .unwrap();
 
@@ -610,13 +609,9 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 );
             }
         }
-        let jp_jacket = serdest_to_string(song.get("imageName").unwrap());
+        let jp_jacket = song["imageName"].as_str().unwrap().to_string();
 
-        let sheets = if let serde_json::Value::Array(m) = &song["sheets"] {
-            m
-        } else {
-            panic!()
-        };
+        let sheets = song["sheets"].as_array().unwrap();
         let mut st_sheet_data = vec![];
         let mut dx_sheet_data = vec![];
         let mut st_constants = vec![];
@@ -625,33 +620,25 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         let mut st_levels = vec![];
 
         let r = charts.get_mut(&title).unwrap();
-        
+
         for sheet in sheets {
-            let sheet = if let serde_json::Value::Object(m) = sheet {
-                m
-            } else {
-                panic!()
-            };
+            let sheet = sheet.as_object().unwrap();
 
             // Get notes info.
-            let notes = if let serde_json::Value::Object(m) = &sheet["noteCounts"] {
-                m
-            } else {
-                panic!()
-            };
-            if notes["tap"] == serde_json::Value::Null {
+            let notes = sheet["noteCounts"].as_object().unwrap();
+            if notes["tap"].is_null() {
                 break;
             }
             let sheet_info = MaiSheet {
-                brk: serdest_to_usize(&notes["break"]),
-                hold: serdest_to_usize(&notes["hold"]),
-                slide: serdest_to_usize(&notes["slide"]),
-                tap: serdest_to_usize(&notes["tap"]),
+                brk: notes["break"].as_u64().unwrap() as usize,
+                hold: notes["hold"].as_u64().unwrap() as usize,
+                slide: notes["slide"].as_u64().unwrap() as usize,
+                tap: notes["tap"].as_u64().unwrap() as usize,
                 touch: if notes.contains_key("touch") {
-                    if notes["touch"] == serde_json::Value::Null {
+                    if notes["touch"].is_null() {
                         0
                     } else {
-                        serdest_to_usize(&notes["touch"])
+                        notes["touch"].as_u64().unwrap() as usize
                     }
                 } else {
                     0
@@ -754,7 +741,6 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                     }
                 }
             }
-
         }
 
         let bpm = song.get("bpm");
@@ -767,7 +753,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         let version = if version == Some(&serde_json::Value::Null) {
             None
         } else {
-            version.map(serdest_to_string)
+            version.map(|s| s.as_str().unwrap().to_string())
         };
 
         r.jp_jacket = Some(jp_jacket);
@@ -801,7 +787,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             // }
         } else {
             if let Some(artist) = song.get("artist") {
-                r.artist = serdest_to_string(artist);
+                r.artist = artist.as_str().unwrap().to_string();
             }
             let dx_diff = if !dx_levels.is_empty() {
                 let mut dx_diff = Difficulty {
