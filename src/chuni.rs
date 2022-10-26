@@ -169,7 +169,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     let mut charts = HashMap::new();
 
     // Get JP difficulty.
-    let url = fs::read_to_string("data/chuni-url.txt")?;
+    let url = fs::read_to_string("data/chuni/chuni-url.txt")?;
     let url = url.trim();
     let s = get_curl(url);
 
@@ -233,7 +233,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     }
 
     // Get intl difficulty.
-    let url = fs::read_to_string("data/chuni-intl.txt")?;
+    let url = fs::read_to_string("data/chuni/chuni-intl.txt")?;
     let url = url.trim();
     let s = get_curl(url);
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
@@ -287,7 +287,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     }
 
     // Get constants
-    let constants = fs::read_to_string("data/chuni-info.txt")?;
+    let constants = fs::read_to_string("data/chuni/chuni-info.txt")?;
     let url = constants.trim();
     let s = get_curl(url);
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
@@ -337,11 +337,11 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     }
 
     // Add intl del info
-    let file = File::open("data/chuni-intl-del.txt")?;
+    let file = File::open("data/chuni/chuni-intl-del.txt")?;
     let intl_del = BufReader::new(file).lines().flatten().collect::<Vec<_>>();
 
     // Add intl level info
-    let file = File::open("chuni-new-plus-lv.csv")?;
+    let file = File::open("data/chuni/chuni-new-plus-lv.csv")?;
     let lines = BufReader::new(file).lines();
     for line in lines.flatten() {
         let line = line.split('\t').collect::<Vec<_>>();
@@ -363,7 +363,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     }
 
     // Add intl constant info
-    let file = File::open("chuni-new-plus-cst.csv")?;
+    let file = File::open("data/chuni/chuni-new-plus-cst.csv")?;
     let lines = BufReader::new(file).lines();
     for line in lines.flatten() {
         let line = line.split('\t').collect::<Vec<_>>();

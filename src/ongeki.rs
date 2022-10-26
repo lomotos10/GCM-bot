@@ -328,7 +328,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     let mut charts: HashMap<String, OngekiInfo> = HashMap::new();
 
     // Get JP difficulty.
-    let url = fs::read_to_string("data/ongeki-url.txt")?;
+    let url = fs::read_to_string("data/ongeki/ongeki-url.txt")?;
     let url = url.trim();
     let s = get_curl(url);
 
@@ -415,7 +415,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     }
 
     // Get constants
-    let url = fs::read_to_string("data/ongeki-info.txt")?;
+    let url = fs::read_to_string("data/ongeki/ongeki-info.txt")?;
     let url = url.trim();
     let s = get_curl(url);
 
@@ -541,7 +541,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     }
 
     // Get VS character level and element.
-    let s = fs::read_to_string("data/ongeki-curl.html").unwrap();
+    let s = fs::read_to_string("data/ongeki/ongeki-curl.html").unwrap();
     let dom = tl::parse(&s, tl::ParserOptions::default()).unwrap();
     let parser = dom.parser();
     let element = dom

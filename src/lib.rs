@@ -25,26 +25,29 @@ mod tests {
     #[test]
     fn full_test() {
         let files_not_urls = [
-            "data/maimai-jacket-prefix.txt",
-            "data/maimai-manual-add.txt",
-            "jp_lv.csv",
-            "in_lv.csv",
+            "data/maimai/maimai-jacket-prefix.txt",
+            "data/maimai/maimai-manual-add.txt",
+            "data/maimai/jp_lv.csv",
+            "data/maimai/in_lv.csv",
             "data/cooldown-server-ids.txt",
             "data/cooldown-channel-exception-ids.txt",
         ];
         let files_urls = [
-            "data/maimai-info.txt",
-            "data/maimai-intl.txt",
-            "data/maimai-jp.txt",
-            "data/ongeki-url.txt",
-            "data/chuni-url.txt",
+            "data/maimai/maimai-info.txt",
+            "data/maimai/maimai-intl.txt",
+            "data/maimai/maimai-jp.txt",
+            "data/ongeki/ongeki-url.txt",
+            "data/ongeki/ongeki-info.txt",
+            "data/chuni/chuni-info.txt",
+            "data/chuni/chuni-intl.txt",
+            "data/chuni/chuni-url.txt",
         ];
 
         for s in files_not_urls {
-            File::open(s).unwrap();
+            File::open(s).expect(s);
         }
         for s in files_urls {
-            let url = fs::read_to_string(s).unwrap();
+            let url = fs::read_to_string(s).expect(s);
             get_curl(&url);
         }
 

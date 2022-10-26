@@ -218,7 +218,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     let mut charts = HashMap::new();
 
     // Get JP difficulty.
-    let jp_url = fs::read_to_string("data/maimai-jp.txt")?;
+    let jp_url = fs::read_to_string("data/maimai/maimai-jp.txt")?;
     let jp_url = jp_url.trim();
     let s = get_curl(jp_url);
 
@@ -313,7 +313,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     }
 
     // Get jp constants
-    let file = File::open("jp_lv.csv")?;
+    let file = File::open("data/maimai/jp_lv.csv")?;
     let reader = BufReader::new(file);
 
     for line in reader.lines() {
@@ -443,7 +443,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     // Get intl difficulty.
     let jp_and_intl_version_is_different = true;
     if jp_and_intl_version_is_different {
-        let file = File::open("in_lv.csv")?;
+        let file = File::open("data/maimai/in_lv.csv")?;
         let reader = BufReader::new(file);
 
         for line in reader.lines() {
@@ -549,7 +549,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     }
 
     // Get info DB
-    let info = fs::read_to_string("data/maimai-info.txt")?;
+    let info = fs::read_to_string("data/maimai/maimai-info.txt")?;
     let info = info.trim();
     let s = get_curl(info);
 
@@ -859,7 +859,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     }
 
     // Add manual constant info
-    let file = File::open("data/maimai-manual-add.txt")?;
+    let file = File::open("data/maimai/maimai-manual-add.txt")?;
     let lines = BufReader::new(file).lines();
     for line in lines.flatten() {
         let line = line.split('\t').collect::<Vec<_>>();
