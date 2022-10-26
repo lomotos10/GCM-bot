@@ -53,7 +53,18 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
 
     let song = song.unwrap();
 
-    let mut description = format!("**Artist:** {}", song.artist.replace('*', "\\*"));
+    let mut description = if song.deleted {
+        "**THIS SONG IS DELETED**\n\n"
+    } else {
+        ""
+    }
+    .to_string();
+
+    description = format!(
+        "{}**Artist:** {}",
+        description,
+        song.artist.replace('*', "\\*")
+    );
     description = if let Some(version) = song.version.as_ref() {
         format!("{}\n**Version:** {}", description, version)
     } else {
@@ -68,40 +79,42 @@ fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<St
     let in_lv = &song.intl_lv;
     let jp_lv = &song.jp_lv;
 
-    let jp_txt = if let Some(jp_lv) = jp_lv {
-        level_description(jp_lv, &title)
-    } else {
-        "**Unreleased**".to_string()
-    };
-    let in_txt = if let Some(in_lv) = in_lv {
-        level_description(in_lv, &title)
-    } else {
-        "**Unreleased**".to_string()
-    };
-    if in_txt == jp_txt {
+    if song.deleted {
         description = format!(
-            "{}
+            "{}\n\n**Level:**\n{}",
+            description,
+            level_description(song.jp_lv.as_ref().unwrap(), &title)
+        )
+    } else {
+        let jp_txt = if let Some(jp_lv) = jp_lv {
+            level_description(jp_lv, &title)
+        } else {
+            "**Unreleased**".to_string()
+        };
+        let in_txt = if let Some(in_lv) = in_lv {
+            level_description(in_lv, &title)
+        } else {
+            "**Unreleased**".to_string()
+        };
+        if in_txt == jp_txt {
+            description = format!(
+                "{}
 
 **Level:**
 :flag_jp::globe_with_meridians: {}",
-            description, jp_txt
-        );
-    } else {
-        description = format!(
-            "{}
+                description, jp_txt
+            );
+        } else {
+            description = format!(
+                "{}
 
 **Level:**
 :flag_jp: {}
 :globe_with_meridians: {}",
-            description, jp_txt, in_txt
-        );
+                description, jp_txt, in_txt
+            );
+        }
     }
-    //     description = format!(
-    //         "{}
-
-    // **Level:** {}",
-    //         description, jp_txt
-    //     );
 
     Ok((description, song.jp_jacket.clone()))
 }
@@ -118,11 +131,7 @@ pub async fn chuni_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_template!(
-        "chuni",
-        "255, 255, 0",
-        "\"https://new.chunithm-net.com/chuni-mobile/html/mobile/img/\""
-    );
+    info_template!("chuni", "255, 255, 0", "ctx.data().chuni_jacket_prefix");
     Ok(())
 }
 
@@ -176,34 +185,26 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     // Parse the string of data into serde_json::Value.
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
 
-    let songs = if let serde_json::Value::Array(s) = songs {
-        s
-    } else {
-        panic!()
-    };
+    let songs = songs.as_array().unwrap();
 
     for song in songs {
-        let song = if let serde_json::Value::Object(m) = song {
-            m
-        } else {
-            panic!()
-        };
+        let song = song.as_object().unwrap();
 
-        let title = serdest_to_string(song.get("title").unwrap());
-        let artist = serdest_to_string(song.get("artist").unwrap());
-        let jacket = serdest_to_string(song.get("image").unwrap());
+        let title = song["title"].as_str().unwrap().to_string();
+        let artist = song["artist"].as_str().unwrap().to_string();
+        // let jacket = song["image"].as_str().unwrap().to_string();
 
         let jp_lv = Difficulty {
-            bas: serdest_to_string(song.get("lev_bas").unwrap()),
-            adv: serdest_to_string(song.get("lev_adv").unwrap()),
-            exp: serdest_to_string(song.get("lev_exp").unwrap()),
-            mas: serdest_to_string(song.get("lev_mas").unwrap()),
+            bas: song["lev_bas"].as_str().unwrap().to_string(),
+            adv: song["lev_adv"].as_str().unwrap().to_string(),
+            exp: song["lev_exp"].as_str().unwrap().to_string(),
+            mas: song["lev_mas"].as_str().unwrap().to_string(),
             extra: if song.contains_key("lev_ult") {
                 let ult = song.get("lev_ult").unwrap();
                 if ult == "" {
                     None
                 } else {
-                    Some(serdest_to_string(ult))
+                    Some(ult.as_str().unwrap().to_string())
                 }
             } else {
                 None
@@ -213,16 +214,16 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
 
         if charts.get(&title).is_some() {
             // WORLD'S END items have empty level items
-            assert_eq!(serdest_to_string(song.get("lev_bas").unwrap()), "");
+            assert_eq!(song["lev_bas"].as_str().unwrap().to_string(), "");
             // TODO: implement WORLD'S END
-        } else if serdest_to_string(song.get("lev_bas").unwrap()).is_empty() {
+        } else if song["lev_bas"].as_str().unwrap().to_string().is_empty() {
             // TODO: implement WORLD'S END
         } else {
             charts.insert(
                 title.clone(),
                 ChuniInfo {
                     jp_lv: Some(jp_lv),
-                    jp_jacket: Some(jacket),
+                    // jp_jacket: Some(jacket),
                     title,
                     artist,
                     // version: None,
@@ -251,19 +252,19 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             panic!()
         };
 
-        let title = serdest_to_string(song.get("title").unwrap());
+        let title = song["title"].as_str().unwrap().to_string();
         if song.get("lev_bas") != None {
             let intl_lv = Difficulty {
-                bas: serdest_to_string(song.get("lev_bas").unwrap()),
-                adv: serdest_to_string(song.get("lev_adv").unwrap()),
-                exp: serdest_to_string(song.get("lev_exp").unwrap()),
-                mas: serdest_to_string(song.get("lev_mas").unwrap()),
-                extra: if song.contains_key("lev_ul") {
-                    let ult = song.get("lev_ul").unwrap();
+                bas: song["lev_bas"].as_str().unwrap().to_string(),
+                adv: song["lev_adv"].as_str().unwrap().to_string(),
+                exp: song["lev_exp"].as_str().unwrap().to_string(),
+                mas: song["lev_mas"].as_str().unwrap().to_string(),
+                extra: if song.contains_key("lev_ult") {
+                    let ult = song.get("lev_ult").unwrap();
                     if ult == "" {
                         None
                     } else {
-                        Some(serdest_to_string(ult))
+                        Some(ult.as_str().unwrap().to_string())
                     }
                 } else {
                     None
@@ -275,7 +276,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
                 if let Some(intl_lv) = &mut (*data).intl_lv {
                     if let Some(ult) = song.get("lev_ul") {
                         assert_eq!((*intl_lv).extra, None);
-                        (*intl_lv).extra = Some(serdest_to_string(ult));
+                        (*intl_lv).extra = Some(ult.as_str().unwrap().to_string());
                     }
                 } else {
                     (*data).intl_lv = Some(intl_lv);
@@ -284,6 +285,39 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         } else {
             // WORLD'S END item; TODO implement
         }
+    }
+
+    // Add intl level info
+    let file = File::open("data/chuni/chuni-new-plus-lv.csv")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let line = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(line.len(), 4);
+        let title = line[0];
+        let chart = charts.get_mut(title).unwrap();
+        if chart.intl_lv.is_none() {
+            chart.intl_lv = Some(Difficulty::default());
+        }
+        let inner = chart.intl_lv.as_mut().unwrap();
+        // Add level
+        let diff_idx = diff_to_idx(line[2]);
+        // let diff_str = inner.lv(diff_idx);
+        // assert_eq!(diff_str, "?");
+        inner.set_lv(diff_idx, line[3].to_string());
+    }
+
+    // Add intl constant info
+    let file = File::open("data/chuni/chuni-new-plus-cst.csv")?;
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let line = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(line.len(), 4);
+        let title = line[0];
+        let chart = charts.get_mut(title).unwrap();
+        let inner = chart.intl_lv.as_mut().unwrap();
+        let cst = float_to_constant(line[3]);
+        let diff_idx = diff_to_idx(line[2]);
+        inner.set_constant(diff_idx, cst.unwrap().to_string());
     }
 
     // Get constants
@@ -305,19 +339,43 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
 
         let title = CHUNI_INFO_REPLACEMENT.get(&title).unwrap_or(&title);
         let bpm = meta["bpm"].as_u64();
+        let jacket = meta["imageName"].as_str().unwrap();
         let chart = charts.get_mut(title);
         let chart = if let Some(c) = chart {
             c
         } else {
-            // deleted song; todo
-            continue;
+            // deleted song
+            charts.insert(
+                title.to_string(),
+                ChuniInfo {
+                    jp_lv: None,
+                    // jp_jacket: Some(jacket),
+                    title: title.to_string(),
+                    deleted: true,
+                    ..Default::default()
+                },
+            );
+            charts.get_mut(title).unwrap()
         };
         chart.bpm = bpm.map(|i| i as usize);
+        chart.jp_jacket = Some(jacket.to_string());
         if let Some(version) = meta["version"].as_str() {
             chart.version = Some(version.to_string());
         }
 
         let diffs = song["sheets"].as_array().unwrap();
+        // For deleted songs, add difficulty info.
+        if chart.deleted {
+            let mut difficulty = Difficulty::default();
+            for data in diffs.iter() {
+                let data = data.as_object().unwrap();
+                let diff_c = diff_to_idx(data["difficulty"].as_str().unwrap());
+                let lv = data["level"].as_str().unwrap();
+                difficulty.set_lv(diff_c, lv.to_string());
+            }
+            chart.jp_lv = Some(difficulty);
+            chart.artist = meta["artist"].as_str().unwrap().to_string();
+        }
         let difficulty = chart.jp_lv.as_mut().unwrap();
         for data in diffs.iter() {
             let data = data.as_object().unwrap();
@@ -333,51 +391,29 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             if c != 0.0 {
                 difficulty.set_constant(diff_c, c.to_string());
             }
+
+            // Set difficulty by region.
+            let regions = data["regions"].as_object().unwrap();
+            let jp_region = regions["jp"].as_bool().unwrap();
+            let intl_region = regions["intl"].as_bool().unwrap();
+            if intl_region {
+                assert!(jp_region);
+                if diff_c < 4 {
+                    // song doesn't exist at all in intl
+                    chart.intl_lv = None;
+                    continue;
+                } else {
+                    // ultima doesn't exist
+                    assert_eq!(diff_c, 4);
+                    // If intl_lv wasn't deleted by an earlier iteration because other levels exist..
+                    if let Some(intl) = chart.intl_lv.as_mut() {
+                        intl.extra = None;
+                        intl.extra_c = None;
+                    }
+                }
+            }
         }
     }
-
-    // Add intl del info
-    let file = File::open("data/chuni/chuni-intl-del.txt")?;
-    let intl_del = BufReader::new(file).lines().flatten().collect::<Vec<_>>();
-
-    // Add intl level info
-    let file = File::open("data/chuni/chuni-new-plus-lv.csv")?;
-    let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
-        let line = line.split('\t').collect::<Vec<_>>();
-        assert_eq!(line.len(), 4);
-        let title = line[0];
-        if intl_del.contains(&title.to_string()) {
-            continue;
-        }
-        let chart = charts.get_mut(title).unwrap();
-        if chart.intl_lv.is_none() {
-            chart.intl_lv = Some(Difficulty::default());
-        }
-        let inner = chart.intl_lv.as_mut().unwrap();
-        // Add level
-        let diff_idx = diff_to_idx(line[2]);
-        // let diff_str = inner.lv(diff_idx);
-        // assert_eq!(diff_str, "?");
-        inner.set_lv(diff_idx, line[3].to_string());
-    }
-
-    // Add intl constant info
-    let file = File::open("data/chuni/chuni-new-plus-cst.csv")?;
-    let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
-        let line = line.split('\t').collect::<Vec<_>>();
-        assert_eq!(line.len(), 4);
-        let title = line[0];
-        if intl_del.contains(&title.to_string()) {
-            continue;
-        }
-        let chart = charts.get_mut(title).unwrap();
-        let inner = chart.intl_lv.as_mut().unwrap();
-        let cst = float_to_constant(line[3]);
-        let diff_idx = diff_to_idx(line[2]);
-        inner.set_constant(diff_idx, cst.unwrap().to_string());
-    }
-
+    println!("{:#?}", charts);
     Ok(charts)
 }
