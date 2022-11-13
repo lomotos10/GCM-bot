@@ -1,5 +1,9 @@
 # GCM-bot: A chart info bot for GekiChuMai!
 
+This bot provides info about SEGA's three arcade rhythm games: maimai, CHUNITHM, and Ongeki. Find out levels and chart constants of the songs of your choice! Supports English nicknames and abbreviations for song titles (ex. "135 seconds" for "封焔の135秒")
+
+Supports English and Korean song nicknames.
+
 [Invite link](https://discord.com/api/oauth2/authorize?client_id=986651489529397279&permissions=2147502080&scope=applications.commands%20bot)
 
 [Update notes](https://twitter.com/GCM_bot)
@@ -24,7 +28,7 @@ In addition to using these commands on servers, you can also DM the bot the same
 
 - /\[mai|chuni|ongeki\]-info `song name`: Shows the maimai/chunithm/ongeki level and chart constants of the song, as well as other info.
 - /\[mai|chuni|ongeki\]-jacket `song name`: Shows the maimai/chunithm/ongeki jacket of the chart.
-- /help: Links to this page.
+- /help: Prints help info, and a link to this page.
 
 There may be more hidden undocumented commands!
 
@@ -32,7 +36,7 @@ There may be more hidden undocumented commands!
 
 If there are requested features or nicknames to songs that you want to add, you can choose one of the below methods:
 
-1. Send the question to @Lomo#2363 on Discord or the Discord support channel https://discord.gg/8tVDqfZzAN .
+1. Send the question to @Lomo#2363 on Discord or the Discord support channel [[https://discord.gg/8tVDqfZzAN]].
 2. Add an issue on this repository.
 3. Contribute the requested change as a pull request.
 
@@ -51,6 +55,5 @@ Here there are three nicknames each separated by a tab.
 Thanks to the following people who are maintaining these awesome repositories:
 
 - [zetaraku](https://github.com/zetaraku) of [arcade-songs](https://github.com/zetaraku/arcade-songs) (https://arcade-songs.zetaraku.dev/)
-- [kyroslee](https://github.com/kyroslee) of [chuni_intl_viewer](https://github.com/kyroslee/chuni_intl_viewer)
 - [project-primera](https://github.com/project-primera) of [ongeki-score](https://github.com/project-primera/ongeki-score) (https://ongeki-score.net/)
   - Contributors to ongeki-score: [@Rinsaku471](https://twitter.com/Rinsaku471), [@RKS49019722](https://twitter.com/RKS49019722), [@masa_9713](https://twitter.com/masa_9713)
