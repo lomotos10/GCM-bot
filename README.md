@@ -36,7 +36,7 @@ There may be more hidden undocumented commands!
 
 If there are requested features or nicknames to songs that you want to add, you can choose one of the below methods:
 
-1. Send the question to @Lomo#2363 on Discord or the Discord support channel [[https://discord.gg/8tVDqfZzAN]].
+1. Send the question to @Lomo#2363 on Discord or the [Discord support channel](https://discord.gg/8tVDqfZzAN).
 2. Add an issue on this repository.
 3. Contribute the requested change as a pull request.
 
