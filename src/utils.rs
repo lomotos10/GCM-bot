@@ -1,5 +1,5 @@
 use ordered_float::OrderedFloat;
-use poise::serenity_prelude::{ChannelId, GuildId, Timestamp, UserId};
+use poise::serenity_prelude::{ChannelId, GuildId, UserId};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -15,8 +15,8 @@ use walkdir::WalkDir;
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
-pub const USER_COOLDOWN: i64 = 1800;
-pub const CHANNEL_COOLDOWN: i64 = 300;
+// pub const USER_COOLDOWN: i64 = 1800;
+// pub const CHANNEL_COOLDOWN: i64 = 300;
 
 type Maps = (HashMap<UserId, i64>, HashMap<ChannelId, i64>);
 
@@ -53,6 +53,7 @@ pub struct Data {
     pub alias_log: Arc<Mutex<File>>,
 }
 
+#[allow(dead_code)]
 pub enum Cooldown {
     User(i64),
     Channel(i64),
@@ -499,45 +500,47 @@ pub fn constant_to_string(c: Option<OrderedFloat<f32>>) -> String {
 
 /// Returns true if guild id is registered in `data/cooldown-server-ids.txt`
 /// and user cooldown has not yet passed.
-pub async fn check_cooldown(ctx: &Context<'_>) -> Cooldown {
-    let guild_id = match ctx.guild_id() {
-        Some(id) => id,
-        None => return Cooldown::None,
-    };
-    let channel_id = ctx.channel_id();
+pub async fn check_cooldown(_ctx: &Context<'_>) -> Cooldown {
+    return Cooldown::None;
+    
+    // let guild_id = match ctx.guild_id() {
+    //     Some(id) => id,
+    //     None => return Cooldown::None,
+    // };
+    // let channel_id = ctx.channel_id();
 
-    if !ctx.data().cooldown_server_ids.contains(&guild_id) {
-        return Cooldown::None;
-    }
-    if ctx
-        .data()
-        .cooldown_channel_exception_ids
-        .contains(&channel_id)
-    {
-        return Cooldown::None;
-    }
+    // if !ctx.data().cooldown_server_ids.contains(&guild_id) {
+    //     return Cooldown::None;
+    // }
+    // if ctx
+    //     .data()
+    //     .cooldown_channel_exception_ids
+    //     .contains(&channel_id)
+    // {
+    //     return Cooldown::None;
+    // }
 
-    let mut map = ctx.data().timestamps.lock().await;
-    let (user_map, channel_map) = map.get_mut(&guild_id).unwrap();
+    // let mut map = ctx.data().timestamps.lock().await;
+    // let (user_map, channel_map) = map.get_mut(&guild_id).unwrap();
 
-    let now = Timestamp::now().unix_timestamp();
-    let user_id = ctx.author().id;
-    let channel_id = ctx.channel_id();
-    let then = user_map.get(&user_id);
-    if let Some(then) = then {
-        if now - then < USER_COOLDOWN {
-            return Cooldown::User(USER_COOLDOWN - (now - then));
-        }
-    }
-    let then = channel_map.get(&channel_id);
-    if let Some(then) = then {
-        if now - then < CHANNEL_COOLDOWN {
-            return Cooldown::Channel(CHANNEL_COOLDOWN - (now - then));
-        }
-    }
-    user_map.insert(user_id, now);
-    channel_map.insert(channel_id, now);
-    Cooldown::None
+    // let now = Timestamp::now().unix_timestamp();
+    // let user_id = ctx.author().id;
+    // let channel_id = ctx.channel_id();
+    // let then = user_map.get(&user_id);
+    // if let Some(then) = then {
+    //     if now - then < USER_COOLDOWN {
+    //         return Cooldown::User(USER_COOLDOWN - (now - then));
+    //     }
+    // }
+    // let then = channel_map.get(&channel_id);
+    // if let Some(then) = then {
+    //     if now - then < CHANNEL_COOLDOWN {
+    //         return Cooldown::Channel(CHANNEL_COOLDOWN - (now - then));
+    //     }
+    // }
+    // user_map.insert(user_id, now);
+    // channel_map.insert(channel_id, now);
+    // Cooldown::None
 }
 
 /// Return corresponding index to difficulty - BASIC = 0, ADVANCED = 1, ...
