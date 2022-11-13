@@ -44,3 +44,6 @@ name = "sync-aliases"
 
 [[bin]]
 name = "grand-slam"
+
+[[bin]]
+name = "mai-ordering"

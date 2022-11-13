@@ -240,12 +240,11 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
 
         let title = song["title"].as_str().unwrap().to_string();
         // Edge case handling for duplicate title
-        let title =
-            if title == "Link" && song["catcode"].as_str().unwrap()  == "maimai" {
-                "Link (maimai)".to_string()
-            } else {
-                title
-            };
+        let title = if title == "Link" && song["catcode"].as_str().unwrap() == "maimai" {
+            "Link (maimai)".to_string()
+        } else {
+            title
+        };
 
         let artist = song["artist"].as_str().unwrap().to_string();
 
@@ -287,9 +286,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             dx: dx_lv,
         };
 
-        let order = song["sort"].as_str().unwrap()
-            .parse::<usize>()
-            .unwrap();
+        let order = song["sort"].as_str().unwrap().parse::<usize>().unwrap();
 
         let r = charts.insert(
             title.clone(),

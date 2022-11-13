@@ -396,8 +396,8 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             let regions = data["regions"].as_object().unwrap();
             let jp_region = regions["jp"].as_bool().unwrap();
             let intl_region = regions["intl"].as_bool().unwrap();
-            if intl_region {
-                assert!(jp_region);
+            assert!(jp_region || !intl_region);
+            if !intl_region {
                 if diff_c < 4 {
                     // song doesn't exist at all in intl
                     chart.intl_lv = None;
