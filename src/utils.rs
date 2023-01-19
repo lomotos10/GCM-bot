@@ -129,23 +129,23 @@ impl Difficulty {
     pub fn set_lv(&mut self, idx: usize, lv: String) -> String {
         if idx == 0 {
             let s = self.bas.clone();
-            (*self).bas = lv;
+            self.bas = lv;
             s
         } else if idx == 1 {
             let s = self.adv.clone();
-            (*self).adv = lv;
+            self.adv = lv;
             s
         } else if idx == 2 {
             let s = self.exp.clone();
-            (*self).exp = lv;
+            self.exp = lv;
             s
         } else if idx == 3 {
             let s = self.mas.clone();
-            (*self).mas = lv;
+            self.mas = lv;
             s
         } else if idx == 4 {
             let s = self.lv(4);
-            (*self).extra = Some(lv);
+            self.extra = Some(lv);
             s
         } else {
             panic!()
@@ -156,23 +156,23 @@ impl Difficulty {
         let lv = float_to_constant(&lv).unwrap();
         if idx == 0 {
             let s = self.bas.clone();
-            (*self).bas_c = Some(lv);
+            self.bas_c = Some(lv);
             s
         } else if idx == 1 {
             let s = self.adv.clone();
-            (*self).adv_c = Some(lv);
+            self.adv_c = Some(lv);
             s
         } else if idx == 2 {
             let s = self.exp.clone();
-            (*self).exp_c = Some(lv);
+            self.exp_c = Some(lv);
             s
         } else if idx == 3 {
             let s = self.mas.clone();
-            (*self).mas_c = Some(lv);
+            self.mas_c = Some(lv);
             s
         } else if idx == 4 {
             let s = self.lv(4);
-            (*self).extra_c = Some(lv);
+            self.extra_c = Some(lv);
             s
         } else {
             panic!()
@@ -465,7 +465,7 @@ pub fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
     candidates.push(f(&aliases.alphanumeric_and_ascii, &title2));
     candidates.push(f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
 
-    let a = &candidates.iter().max_by_key(|x| (*x).1).unwrap().0;
+    let a = &candidates.iter().max_by_key(|x| x.1).unwrap().0;
     (a.0.clone(), a.1.clone())
 }
 
@@ -501,8 +501,8 @@ pub fn constant_to_string(c: Option<OrderedFloat<f32>>) -> String {
 /// Returns true if guild id is registered in `data/cooldown-server-ids.txt`
 /// and user cooldown has not yet passed.
 pub async fn check_cooldown(_ctx: &Context<'_>) -> Cooldown {
-    return Cooldown::None;
-    
+    Cooldown::None
+
     // let guild_id = match ctx.guild_id() {
     //     Some(id) => id,
     //     None => return Cooldown::None,
@@ -590,6 +590,13 @@ pub struct MaiSheet {
     pub slide: usize,
     pub tap: usize,
     pub touch: usize,
+}
+
+#[allow(dead_code)]
+fn mai_diff_string(dx: bool, diff: usize) -> String {
+    let st_str = ["BASIC", "ADVANCED", "EXPERT", "MASTER", "Re:MAS"];
+    let dx_str = ["DXBAS", "DXADV", "DXEXP", "DXMAS", "DXREM"];
+    if dx { dx_str[diff] } else { st_str[diff] }.to_string()
 }
 
 /////////////////////// chuni utils ///////////////////////

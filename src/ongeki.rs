@@ -385,16 +385,16 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
             if song["lev_bas"].as_str().unwrap().to_string().is_empty() {
                 // 1. LUNATIC added to normal chart - items have empty level items
                 assert_eq!(song["lev_bas"].as_str().unwrap().to_string(), "");
-                let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
-                (*diff).extra = Some(song["lev_lnt"].as_str().unwrap().to_string())
+                let diff = charts.get_mut(&title).unwrap().lv.as_mut().unwrap();
+                diff.extra = Some(song["lev_lnt"].as_str().unwrap().to_string())
             } else {
                 // 2. Normal chart added to lunatic - items have empty lunatic item
                 assert_eq!(song["lev_lnt"].as_str().unwrap().to_string(), "");
-                let diff = (*charts.get_mut(&title).unwrap()).lv.as_mut().unwrap();
-                (*diff).bas = song["lev_bas"].as_str().unwrap().to_string();
-                (*diff).adv = song["lev_adv"].as_str().unwrap().to_string();
-                (*diff).exp = song["lev_exc"].as_str().unwrap().to_string();
-                (*diff).mas = song["lev_mas"].as_str().unwrap().to_string();
+                let diff = charts.get_mut(&title).unwrap().lv.as_mut().unwrap();
+                diff.bas = song["lev_bas"].as_str().unwrap().to_string();
+                diff.adv = song["lev_adv"].as_str().unwrap().to_string();
+                diff.exp = song["lev_exc"].as_str().unwrap().to_string();
+                diff.mas = song["lev_mas"].as_str().unwrap().to_string();
             }
         } else {
             charts.insert(
@@ -530,7 +530,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
 
         if let Some(song) = charts.get_mut(&title) {
             let diff_idx = diff_to_idx(diff);
-            let lv = (*song).lv.as_mut().unwrap();
+            let lv = song.lv.as_mut().unwrap();
             assert_eq!(lv.lv(diff_idx), float_to_level(cst));
             if cst_exists {
                 lv.set_constant(diff_idx, cst.to_string());
@@ -656,7 +656,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 title_lv.to_string()
             };
 
-            println!("{} {}", title_lv, title_lv2);
+            // println!("{} {}", title_lv, title_lv2);
             let title_lv3 = if !charts.contains_key(&title_lv2) {
                 LV_SOURCE_REPLACEMENT[title_lv].to_string()
             } else {
