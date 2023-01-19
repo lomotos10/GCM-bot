@@ -67,9 +67,9 @@ Did you mean **{{}}** (for **{{}}**)?
                 {{
                     Some(ci) => ci,
                     None => {{
-                        ctx.send(|f| f.ephemeral(true).content(\"Timed out\"))
-                            .await
-                            .unwrap();
+                        // ctx.send(|f| f.ephemeral(true).content(\"Timed out\"))
+                        //     .await
+                        //     .unwrap();
                         return Ok(());
                     }}
                 }};
@@ -173,9 +173,9 @@ Did you mean **{{}}** (for **{{}}**)?
                 {{
                     Some(ci) => ci,
                     None => {{
-                        ctx.send(|f| f.ephemeral(true).content(\"Timed out\"))
-                            .await
-                            .unwrap();
+                        // ctx.send(|f| f.ephemeral(true).content(\"Timed out\"))
+                        //     .await
+                        //     .unwrap();
                         return Ok(());
                     }}
                 }};

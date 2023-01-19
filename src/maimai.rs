@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{self, File},
     io::Write,
     io::{BufRead, BufReader},
@@ -28,6 +28,18 @@ lazy_static! {
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect::<HashMap<_, _>>()
+    };
+    static ref DX_SONGS_WITH_ST: HashSet<String> = {
+        [
+            "Technicians High",
+            "Destr0yer",
+            "Halcyon",
+            "サンバランド",
+            "VIIIbit Explorer",
+        ]
+        .iter()
+        .map(|k| k.to_string())
+        .collect::<HashSet<_>>()
     };
 }
 
@@ -437,7 +449,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     }
 
     // Get intl difficulty.
-    let jp_and_intl_version_is_different = true;
+    let jp_and_intl_version_is_different = false;
     if jp_and_intl_version_is_different {
         let file = File::open("data/maimai/in_lv.csv")?;
         let reader = BufReader::new(file);
@@ -539,7 +551,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         // Same version; copy jp difficulty into intl
         for info in charts.values_mut() {
             if info.jp_lv.is_some() {
-                (*info).intl_lv = info.jp_lv.clone();
+                info.intl_lv = info.jp_lv.clone();
             }
         }
     }
@@ -623,19 +635,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
 
             // Get notes info.
             let notes = sheet["noteCounts"].as_object().unwrap();
-            if notes["tap"].is_null() {
-                break;
-            }
+            // if notes["tap"].is_null() {
+            //     break;
+            // }
             let sheet_info = MaiSheet {
-                brk: notes["break"].as_u64().unwrap() as usize,
-                hold: notes["hold"].as_u64().unwrap() as usize,
-                slide: notes["slide"].as_u64().unwrap() as usize,
-                tap: notes["tap"].as_u64().unwrap() as usize,
+                brk: notes["break"].as_u64().unwrap_or(99999) as usize,
+                hold: notes["hold"].as_u64().unwrap_or(99999) as usize,
+                slide: notes["slide"].as_u64().unwrap_or(99999) as usize,
+                tap: notes["tap"].as_u64().unwrap_or(99999) as usize,
                 touch: if notes.contains_key("touch") {
                     if notes["touch"].is_null() {
                         0
                     } else {
-                        notes["touch"].as_u64().unwrap() as usize
+                        notes["touch"].as_u64().unwrap_or(99999) as usize
                     }
                 } else {
                     0
@@ -700,6 +712,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                             *lv = None;
                         }
                     }
+                    r.deleted = false;
                 }
             } else if diff_idx == 4 {
                 // Remas
@@ -746,11 +759,15 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         } else {
             bpm.map(|b| OrderedFloat(b.as_f64().unwrap()))
         };
-        let version = song.get("version");
-        let version = if version == Some(&serde_json::Value::Null) {
-            None
+        let version = if DX_SONGS_WITH_ST.contains(&title) {
+            // song.version contains ST info - we need DX info instead
+            sheets[0]
+                .as_object()
+                .unwrap()
+                .get("version")
+                .map(|s| s.as_str().unwrap().to_string())
         } else {
-            version.map(|s| s.as_str().unwrap().to_string())
+            song.get("version").map(|s| s.as_str().unwrap().to_string())
         };
 
         r.jp_jacket = Some(jp_jacket);
@@ -834,10 +851,12 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 None
             };
 
-            r.jp_lv = Some(MaiDifficulty {
-                dx: dx_diff,
-                st: st_diff,
-            })
+            if r.deleted {
+                r.jp_lv = Some(MaiDifficulty {
+                    dx: dx_diff,
+                    st: st_diff,
+                })
+            }
         }
     }
 
@@ -854,7 +873,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             chart.jp_lv.as_mut()
         } else if line[3] == "IN" {
             if chart.intl_lv.is_none() {
-                (*chart).intl_lv = Some(MaiDifficulty::default());
+                chart.intl_lv = Some(MaiDifficulty::default());
             }
             chart.intl_lv.as_mut()
         } else {
@@ -865,7 +884,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             inner.dx.as_mut()
         } else if line[1] == "ST" {
             if inner.st.is_none() {
-                (*inner).st = Some(Difficulty::default());
+                inner.st = Some(Difficulty::default());
             }
             inner.st.as_mut()
         } else {
@@ -880,19 +899,19 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 if inner.exp_c == cst {
                     eprintln!("{:?} exists on server", line);
                 }
-                (*inner).exp_c = cst;
+                inner.exp_c = cst;
             } else if line[2] == "MAS" {
                 assert!(inner.mas_c.is_none() || inner.mas_c == cst);
                 if inner.mas_c == cst {
                     eprintln!("{:?} exists on server", line);
                 }
-                (*inner).mas_c = cst;
+                inner.mas_c = cst;
             } else if line[2] == "REM" {
                 assert!(inner.extra_c.is_none() || inner.extra_c == cst);
                 if inner.extra_c == cst {
                     eprintln!("{:?} exists on server", line);
                 }
-                (*inner).extra_c = cst;
+                inner.extra_c = cst;
             } else {
                 panic!()
             }

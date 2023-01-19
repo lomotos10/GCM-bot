@@ -167,10 +167,7 @@ pub async fn chuni_jacket(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    jacket_template!(
-        "chuni",
-        "\"https://new.chunithm-net.com/chuni-mobile/html/mobile/img/\""
-    );
+    jacket_template!("chuni", "ctx.data().chuni_jacket_prefix");
     Ok(())
 }
 
@@ -253,7 +250,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         };
 
         let title = song["title"].as_str().unwrap().to_string();
-        if song.get("lev_bas") != None {
+        if song.get("lev_bas").is_some() {
             let intl_lv = Difficulty {
                 bas: song["lev_bas"].as_str().unwrap().to_string(),
                 adv: song["lev_adv"].as_str().unwrap().to_string(),
@@ -273,13 +270,13 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             };
 
             if let Some(data) = charts.get_mut(&title) {
-                if let Some(intl_lv) = &mut (*data).intl_lv {
+                if let Some(intl_lv) = &mut data.intl_lv {
                     if let Some(ult) = song.get("lev_ul") {
-                        assert_eq!((*intl_lv).extra, None);
-                        (*intl_lv).extra = Some(ult.as_str().unwrap().to_string());
+                        assert_eq!(intl_lv.extra, None);
+                        intl_lv.extra = Some(ult.as_str().unwrap().to_string());
                     }
                 } else {
-                    (*data).intl_lv = Some(intl_lv);
+                    data.intl_lv = Some(intl_lv);
                 }
             }
         } else {
@@ -380,7 +377,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         for data in diffs.iter() {
             let data = data.as_object().unwrap();
             let diff_c = diff_to_idx(data["difficulty"].as_str().unwrap());
-            if data.get("internalLevelValue") == None {
+            if data.get("internalLevelValue").is_none() {
                 continue;
             }
             let c = if let Some(c) = data["internalLevelValue"].as_f64() {
@@ -412,8 +409,11 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
                     }
                 }
             }
+            // Assert that if song exists in intl according to arcade-songs, intl level data exists.
+            if intl_region && diff_c == 0 {
+                assert!(chart.intl_lv.is_some(), "{:#?}", song);
+            }
         }
     }
-    println!("{:#?}", charts);
     Ok(charts)
 }
