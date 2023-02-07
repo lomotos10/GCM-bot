@@ -419,6 +419,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     let url = url.trim();
     let s = get_curl(url);
 
+    // Get table element from entire html
     let json = html_parser::Dom::parse(&s)?.to_json_pretty()?;
     let songs: serde_json::Value = serde_json::from_str(&json).unwrap();
     let song = songs.as_object().unwrap();
@@ -444,9 +445,9 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
 
     let m = m.get(1).unwrap().as_object().unwrap();
     let m = m.get("children").unwrap().as_array().unwrap();
-    assert_eq!(m.len(), 5);
+    assert_eq!(m.len(), 3);
 
-    let m = m.get(4).unwrap().as_object().unwrap();
+    let m = m.get(2).unwrap().as_object().unwrap();
     let m = m.get("children").unwrap().as_array().unwrap();
     assert_eq!(m.len(), 1);
 
@@ -457,6 +458,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     let m = m.get(2).unwrap().as_object().unwrap();
     let songs = m.get("children").unwrap().as_array().unwrap();
 
+    // Parse table to earn cc
     for song in songs {
         let m = song.as_object().unwrap();
         let children = m.get("children").unwrap().as_array().unwrap();
