@@ -41,6 +41,18 @@ lazy_static! {
         .map(|k| k.to_string())
         .collect::<HashSet<_>>()
     };
+    static ref EXCEPTIONS_ST_AFTER_DX: Vec<(String, String)> = {
+        [
+            ("Technicians High", "maimai UNiVERSE"),
+            ("Destr0yer", "maimai UNiVERSE"),
+            ("Halcyon", "maimai UNiVERSE PLUS"),
+            ("サンバランド", "maimai UNiVERSE PLUS"),
+            ("VIIIbit Explorer", "maimai FESTiVAL"),
+        ]
+        .iter()
+        .map(|(a, b)| (a.to_string(), b.to_string()))
+        .collect()
+    };
 }
 
 fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<String>), Error> {
@@ -226,11 +238,9 @@ pub async fn mai_jacket(
     Ok(())
 }
 
-pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
-    let mut charts = HashMap::new();
-
+fn set_jp_difficulty(charts: &mut HashMap<String, MaiInfo>) {
     // Get JP difficulty.
-    let jp_url = fs::read_to_string("data/maimai/maimai-jp.txt")?;
+    let jp_url = fs::read_to_string("data/maimai/maimai-jp.txt").unwrap();
     let jp_url = jp_url.trim();
     let s = get_curl(jp_url);
 
@@ -319,13 +329,15 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
         );
         assert_eq!(r, None);
     }
+}
 
+fn set_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
     // Get jp constants
-    let file = File::open("data/maimai/jp_lv.csv")?;
+    let file = File::open("data/maimai/jp_lv.csv").unwrap();
     let reader = BufReader::new(file);
 
     for line in reader.lines() {
-        let line = line?;
+        let line = line.unwrap();
         let line = line.split('\t').collect::<Vec<_>>();
         assert_eq!(line.len(), 7);
         let title = SONG_REPLACEMENT
@@ -447,15 +459,58 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             panic!("Sus");
         }
     }
+}
 
+fn set_actual_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
+    // Get jp constants from second source.
+    let file = File::open("data/maimai/festival_16-09-2022.json").unwrap();
+    let songs: serde_json::Value = serde_json::from_reader(&file).unwrap();
+    let songs = songs.as_array().unwrap();
+    for song in songs {
+        let song = song.as_object().unwrap();
+        let mut title = song["Song"].as_str().unwrap();
+        let version = song["Version added"].as_str().unwrap();
+        let mut dx = version.contains("でらっくす")
+            || version.contains("スプラッシュ")
+            || version.contains("UNiVERSE")
+            || version.contains("FESTiVAL");
+        if EXCEPTIONS_ST_AFTER_DX.contains(&(title.to_string(), version.to_string())) {
+            dx = !dx;
+        }
+        if (title, version) == ("Link", "maimai PLUS") {
+            title = "Link (maimai)";
+        }
+
+        for (diff, chart) in song["Charts"].as_array().unwrap().iter().enumerate() {
+            let cc = chart["Level Constant"].as_str().unwrap();
+            let jp_diff = charts.get_mut(title).unwrap().jp_lv.as_mut().unwrap();
+            let dx_or_st_chart = if dx { &mut jp_diff.dx } else { &mut jp_diff.st };
+            let mai_diff = dx_or_st_chart.as_mut().unwrap();
+            let current_cc = mai_diff.get_constant(diff);
+            if current_cc.is_some() && format!("{:.1}", current_cc.unwrap()) != cc {
+                eprintln!(
+                    "JP constant sources different on song {} {} {} - {:.1} vs {}",
+                    title,
+                    dx,
+                    diff,
+                    current_cc.unwrap(),
+                    cc
+                );
+            }
+            mai_diff.set_constant(diff, cc.to_string());
+        }
+    }
+}
+
+fn set_intl_difficulty(charts: &mut HashMap<String, MaiInfo>) {
     // Get intl difficulty.
     let jp_and_intl_version_is_different = false;
     if jp_and_intl_version_is_different {
-        let file = File::open("data/maimai/in_lv.csv")?;
+        let file = File::open("data/maimai/in_lv.csv").unwrap();
         let reader = BufReader::new(file);
 
         for line in reader.lines() {
-            let line = line?;
+            let line = line.unwrap();
             let line = line.split('\t').collect::<Vec<_>>();
             assert_eq!(line.len(), 7);
             let title = SONG_REPLACEMENT
@@ -555,9 +610,11 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             }
         }
     }
+}
 
+fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
     // Get info DB
-    let info = fs::read_to_string("data/maimai/maimai-info.txt")?;
+    let info = fs::read_to_string("data/maimai/maimai-info.txt").unwrap();
     let info = info.trim();
     let s = get_curl(info);
 
@@ -719,6 +776,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
                 if !jp_region && !intl_region {
                     // If song is deleted, this is already taken care of on the Basic~Master branch.
                 } else {
+                    // Sorry for this code, I wish to kms
                     if !jp_region {
                         if let Some(lv) = r.jp_lv.as_mut() {
                             let lv = if dx_type == "dx" {
@@ -859,9 +917,11 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             }
         }
     }
+}
 
+fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) {
     // Add manual constant info
-    let file = File::open("data/maimai/maimai-manual-add.txt")?;
+    let file = File::open("data/maimai/maimai-manual-add.txt").unwrap();
     let lines = BufReader::new(file).lines();
     for line in lines.flatten() {
         let line = line.split('\t').collect::<Vec<_>>();
@@ -923,6 +983,17 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
             inner.set_lv(diff_idx, line[4].to_string());
         }
     }
+}
+
+pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
+    let mut charts = HashMap::new();
+
+    set_jp_difficulty(&mut charts);
+    set_jp_constants(&mut charts);
+    set_actual_jp_constants(&mut charts);
+    set_intl_difficulty(&mut charts);
+    set_song_info(&mut charts);
+    set_manual_constants(&mut charts);
 
     Ok(charts)
 }
