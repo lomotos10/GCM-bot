@@ -80,6 +80,15 @@ async fn how_to_improve(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+/// Detailed advice on how to improve
+#[poise::command(slash_command, prefix_command, rename = "how-to-actually-improve")]
+async fn how_to_actually_improve(ctx: Context<'_>) -> Result<(), Error> {
+    let help = "\"But how do you actually play more?\"
+https://youtu.be/Ciiars5GCIs (Turn on English subs!)";
+    ctx.say(help).await?;
+    Ok(())
+}
+
 /// Manually add song alias
 #[poise::command(slash_command, prefix_command, rename = "add-alias")]
 async fn add_alias(
@@ -112,11 +121,12 @@ async fn add_alias(
             let mut log = ctx.data().alias_log.lock().await;
             writeln!(
                 log,
-                "{:?}\t{}\t{}\t{}",
+                "{:?}\t{}\t{}\t{}\t{}",
                 game,
                 title,
                 alias,
-                ctx.author().name
+                ctx.author().name,
+                ctx.author().id,
             )?;
         }
         format!("Alias \"{}\" for song \"{}\" has been submitted!\nThe change will take place at 10AM KST, so please wait until then. Thank you!", alias, title)
@@ -151,6 +161,7 @@ async fn main() {
                 help(),
                 help_kr(),
                 how_to_improve(),
+                how_to_actually_improve(),
                 register(),
             ],
             ..Default::default()
