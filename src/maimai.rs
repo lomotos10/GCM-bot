@@ -325,6 +325,7 @@ fn set_jp_difficulty(charts: &mut HashMap<String, MaiInfo>) {
                 version: None,
                 deleted: false,
                 order: Some(order),
+                category: MaiCategory::Error,
             },
         );
         assert_eq!(r, None);
@@ -598,6 +599,7 @@ fn set_intl_difficulty(charts: &mut HashMap<String, MaiInfo>) {
                         version: None,
                         deleted: false,
                         order: None,
+                        category: MaiCategory::Error,
                     },
                 );
             }
@@ -620,25 +622,12 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
 
     // Parse the string of data into serde_json::Value.
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
-    let songs = &if let serde_json::Value::Object(s) = songs {
-        s
-    } else {
-        panic!()
-    }["songs"];
-    let songs = if let serde_json::Value::Array(s) = songs {
-        s
-    } else {
-        panic!()
-    };
+    let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
 
     for song in songs {
-        let song = if let serde_json::Value::Object(m) = song {
-            m
-        } else {
-            panic!()
-        };
+        let song = song.as_object().unwrap();
 
-        let title = song.get("songId").unwrap().as_str().unwrap();
+        let title = song["songId"].as_str().unwrap();
         // Edge case handling for duplicate title
         let title = if title == "Link" {
             "Link (maimai)".to_string()
@@ -671,6 +660,7 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
                         version: None,
                         deleted: true,
                         order: None,
+                        category: mai_get_category(song["category"].as_str().unwrap()),
                     },
                 );
             }
@@ -833,6 +823,7 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
         r.dx_sheets = dx_sheet_data;
         r.st_sheets = st_sheet_data;
         r.version = version;
+        r.category = mai_get_category(song["category"].as_str().unwrap());
 
         if let Some(_jp_lv) = &mut r.jp_lv {
             // info site has less constant info; use other site instead

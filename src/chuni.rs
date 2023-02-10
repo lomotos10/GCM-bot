@@ -359,6 +359,7 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         if let Some(version) = meta["version"].as_str() {
             chart.version = Some(version.to_string());
         }
+        chart.category = chuni_get_category(meta["category"].as_str().unwrap());
 
         let diffs = song["sheets"].as_array().unwrap();
         // For deleted songs, add difficulty info.

@@ -569,6 +569,18 @@ pub struct MaiDifficulty {
 }
 
 #[derive(Debug, Eq, PartialEq, Default)]
+pub enum MaiCategory {
+    PopAnime,
+    NicoVoca,
+    TouhouProject,
+    GameVariety,
+    Maimai,
+    OngekiChuni,
+    #[default]
+    Error,
+}
+
+#[derive(Debug, Eq, PartialEq, Default)]
 pub struct MaiInfo {
     pub jp_lv: Option<MaiDifficulty>,
     pub intl_lv: Option<MaiDifficulty>,
@@ -581,6 +593,7 @@ pub struct MaiInfo {
     pub version: Option<String>,
     pub deleted: bool,
     pub order: Option<usize>,
+    pub category: MaiCategory,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -599,6 +612,25 @@ fn mai_diff_string(dx: bool, diff: usize) -> String {
     if dx { dx_str[diff] } else { st_str[diff] }.to_string()
 }
 
+/// Get category string from maimai-info
+pub fn mai_get_category(s: &str) -> MaiCategory {
+    if s == "POPS＆アニメ" {
+        MaiCategory::PopAnime
+    } else if s == "niconico＆ボーカロイド" {
+        MaiCategory::NicoVoca
+    } else if s == "東方Project" {
+        MaiCategory::TouhouProject
+    } else if s == "ゲーム＆バラエティ" {
+        MaiCategory::GameVariety
+    } else if s == "maimai" {
+        MaiCategory::Maimai
+    } else if s == "オンゲキ＆CHUNITHM" {
+        MaiCategory::OngekiChuni
+    } else {
+        panic!("Invalid maimai song category")
+    }
+}
+
 /////////////////////// chuni utils ///////////////////////
 
 #[derive(Debug, Eq, PartialEq, Default)]
@@ -611,6 +643,40 @@ pub struct ChuniInfo {
     pub bpm: Option<usize>,
     pub version: Option<String>,
     pub deleted: bool,
+    pub category: ChuniCategory,
+}
+
+#[derive(Debug, Eq, PartialEq, Default)]
+pub enum ChuniCategory {
+    PopsAnime,
+    Niconico,
+    TouhouProject,
+    Variety,
+    Irodori,
+    GekiMai,
+    Original,
+    #[default]
+    Error,
+}
+
+pub fn chuni_get_category(s: &str) -> ChuniCategory {
+    if s == "POPS & ANIME" {
+        ChuniCategory::PopsAnime
+    } else if s == "niconico" {
+        ChuniCategory::Niconico
+    } else if s == "東方Project" {
+        ChuniCategory::TouhouProject
+    } else if s == "VARIETY" {
+        ChuniCategory::Variety
+    } else if s == "イロドリミドリ" {
+        ChuniCategory::Irodori
+    } else if s == "ゲキマイ" {
+        ChuniCategory::GekiMai
+    } else if s == "ORIGINAL" {
+        ChuniCategory::Original
+    } else {
+        panic!("Invalid chuni song category")
+    }
 }
 
 // pub fn float_to_chuni_level(f: &str) -> String {
@@ -634,7 +700,40 @@ pub struct OngekiInfo {
     pub artist: String,
     pub date: usize,
     pub character: String,
-    pub category: String,
+    pub category: OngekiCategory,
     pub element: String,
     pub char_lv: usize,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Eq, PartialEq, Default)]
+pub enum OngekiCategory {
+    Ongeki,
+    PopsAnime,
+    Niconico,
+    TouhouProject,
+    Variety,
+    ChuMai,
+    // BonusTrack,
+    // Lunatic,
+    #[default]
+    Error,
+}
+
+pub fn ongeki_get_category(s: &str) -> OngekiCategory {
+    if s == "オンゲキ" {
+        OngekiCategory::Ongeki
+    } else if s == "POPS＆ANIME" {
+        OngekiCategory::PopsAnime
+    } else if s == "niconico" {
+        OngekiCategory::Niconico
+    } else if s == "東方Project" {
+        OngekiCategory::TouhouProject
+    } else if s == "VARIETY" {
+        OngekiCategory::Variety
+    } else if s == "チュウマイ" {
+        OngekiCategory::ChuMai
+    } else {
+        panic!("Invalid ongeki song category {}", s)
+    }
 }
