@@ -179,6 +179,28 @@ lazy_static::lazy_static! {
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect::<HashMap<_, _>>()
     };
+
+    static ref DELETED_SONGS_20230210: Vec<String> = [
+        "Believe",
+        "Deep-Connect",
+        "Snow in \"I love you\"",
+        "NATSUKAGE-夏陰-",
+        "INDETERMINATE UNIVERSE",
+        "お願いマッスル",
+        "リトルソルジャー",
+        "どどんぱち大音頭",
+        "100%ちゅ～学生",
+        "いぇす!ゆゆゆ☆ゆるゆり♪♪",
+        "ピースサイン",
+        "ヒャダインのカカカタ☆カタオモイ-C",
+        "深海のリトルクライ feat. 土岐麻子",
+        "Catch the Moment",
+        "わたしたち魔法乙女です☆",
+        "エブリデイワールド",
+        "春擬き",
+        "Contrail ～軌跡～",
+        "Nameless Story",
+    ].iter().map(|s| s.to_string()).collect();
 }
 
 fn get_ongeki_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<String>), Error> {
@@ -227,15 +249,28 @@ fn get_ongeki_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<S
         );
     }
 
-    let description = format!(
-        "**Artist:** {}
-**Version**: {}
-**VS**: {}
+    let vs_text = if song.deleted {
+        "".to_string()
+    } else {
+        format!("**VS**: {}\n", vs)
+    };
 
+    let description = if song.deleted {
+        "**THIS SONG IS DELETED**\n\n"
+    } else {
+        ""
+    }
+    .to_string();
+
+    let description = format!(
+        "{}**Artist:** {}
+**Version**: {}
+{}
 **Level:** {}",
+        description,
         song.artist.replace('*', "\\*"),
         version,
-        vs,
+        vs_text,
         level_description(song.lv.as_ref().unwrap(), &title)
     );
 
@@ -265,7 +300,7 @@ pub async fn ongeki_info(
     info_template!(
         "ongeki",
         "255, 127, 255",
-        "\"https://ongeki-net.com/ongeki-mobile/img/music/\""
+        "\"https://dp4p6x0xfi5o9.cloudfront.net/ongeki/img/cover/\""
     );
     Ok(())
 }
@@ -324,11 +359,8 @@ pub async fn ongeki_jacket(
     Ok(())
 }
 
-pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
-    let mut charts: HashMap<String, OngekiInfo> = HashMap::new();
-
-    // Get JP difficulty.
-    let url = fs::read_to_string("data/ongeki/ongeki-url.txt")?;
+fn set_jp_difficulty(charts: &mut HashMap<String, OngekiInfo>) {
+    let url = fs::read_to_string("data/ongeki/ongeki-url.txt").unwrap();
     let url = url.trim();
     let s = get_curl(url);
 
@@ -346,7 +378,7 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
 
         let mut title = song["title"].as_str().unwrap().to_string();
         let artist = song["artist"].as_str().unwrap().to_string();
-        let jacket = song["image_url"].as_str().unwrap().to_string();
+        // let jacket = song["image_url"].as_str().unwrap().to_string();
         let date = song["date"].as_str().unwrap().to_string();
         let character = song["character"].as_str().unwrap().to_string();
         let category = song["category"].as_str().unwrap().to_string();
@@ -401,26 +433,129 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 title.clone(),
                 OngekiInfo {
                     lv: Some(lv),
-                    jp_jacket: Some(jacket),
+                    jp_jacket: None,
                     title,
                     artist,
                     date,
                     character,
-                    category,
+                    category: ongeki_get_category(&category),
                     element: "".to_string(),
                     char_lv: 9999,
+                    deleted: false,
                 },
             );
         }
     }
+}
 
-    // Get constants
-    let url = fs::read_to_string("data/ongeki/ongeki-info.txt")?;
+fn set_deleted_songs(charts: &mut HashMap<String, OngekiInfo>) {
+    let url = fs::read_to_string("data/ongeki/ongeki-deleted.txt").unwrap();
+    let url = url.trim();
+    let s = get_curl(url);
+
+    // Parse the string of data into serde_json::Value.
+    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
+
+    for song in songs {
+        let song = song.as_object().unwrap();
+
+        let title = song["title"].as_str().unwrap();
+        let id = song["songId"].as_str().unwrap();
+        // Edge case handling for duplicate title
+        let title = if id == "Singularity (2)" {
+            "Singularity (Arcaea)".to_string()
+        } else if id == "Singularity (3)" {
+            "Singularity (MJ)".to_string()
+        } else {
+            title.to_string()
+        };
+
+        let jp_jacket = Some(song["imageName"].as_str().unwrap().to_string());
+        let artist = song["artist"].as_str().unwrap().to_string();
+        let date = song["releaseDate"]
+            .as_str()
+            .unwrap()
+            .replace('-', "")
+            .parse::<usize>()
+            .unwrap();
+
+        if !charts.contains_key(&title) {
+            // Song is deleted, add element to charts
+            let sheets = song["sheets"].as_array().unwrap();
+            let mut lv = Difficulty::default();
+            for i in 0..4 {
+                // Default value of lv is "?" - change it to "" for ongeki processing
+                lv.set_lv(i, "".to_string());
+            }
+
+            let category_str = song["category"].as_str().unwrap();
+            let category;
+            if category_str == "LUNATIC" {
+                category = OngekiCategory::Error;
+                let sheet = sheets[0].as_object().unwrap();
+
+                let level = sheet["level"].as_str().unwrap();
+                lv.set_lv(4, level.to_string());
+
+                let cc = &sheet["internalLevel"];
+                if !cc.is_null() {
+                    let cc = cc.as_str().unwrap();
+                    lv.set_constant(4, cc.to_string());
+                }
+            } else {
+                category = if category_str == "ボーナストラック" {
+                    OngekiCategory::Ongeki
+                } else {
+                    ongeki_get_category(category_str)
+                };
+                for (idx, sheet) in sheets.iter().enumerate() {
+                    let sheet = sheet.as_object().unwrap();
+
+                    let level = sheet["level"].as_str().unwrap();
+                    lv.set_lv(idx, level.to_string());
+
+                    let cc = &sheet["internalLevel"];
+                    if cc.is_null() {
+                        continue;
+                    }
+                    let cc = cc.as_str().unwrap();
+                    lv.set_constant(idx, cc.to_string());
+                }
+            }
+
+            charts.insert(
+                title.to_string(),
+                OngekiInfo {
+                    lv: Some(lv),
+                    jp_jacket,
+                    title,
+                    artist,
+                    date,
+                    character: "".to_string(),
+                    category,
+                    element: "".to_string(),
+                    char_lv: 9999,
+                    deleted: true,
+                },
+            );
+        } else {
+            // just add the jacket
+            charts.get_mut(&title).unwrap().jp_jacket = jp_jacket;
+        }
+    }
+}
+
+fn set_constants(charts: &mut HashMap<String, OngekiInfo>) {
+    let url = fs::read_to_string("data/ongeki/ongeki-info.txt").unwrap();
     let url = url.trim();
     let s = get_curl(url);
 
     // Get table element from entire html
-    let json = html_parser::Dom::parse(&s)?.to_json_pretty()?;
+    let json = html_parser::Dom::parse(&s)
+        .unwrap()
+        .to_json_pretty()
+        .unwrap();
     let songs: serde_json::Value = serde_json::from_str(&json).unwrap();
     let song = songs.as_object().unwrap();
     let m = song.get("children").unwrap();
@@ -541,7 +676,9 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
             // eprintln!("{}", title);
         }
     }
+}
 
+fn set_vs_character_level_element(charts: &mut HashMap<String, OngekiInfo>) {
     // Get VS character level and element.
     let s = fs::read_to_string("data/ongeki/ongeki-curl.html").unwrap();
     let dom = tl::parse(&s, tl::ParserOptions::default()).unwrap();
@@ -658,7 +795,11 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
                 title_lv.to_string()
             };
 
-            // println!("{} {}", title_lv, title_lv2);
+            // Deleted songs that are still in cc info db
+            if DELETED_SONGS_20230210.contains(&title_lv2) {
+                continue;
+            }
+
             let title_lv3 = if !charts.contains_key(&title_lv2) {
                 LV_SOURCE_REPLACEMENT[title_lv].to_string()
             } else {
@@ -692,5 +833,15 @@ pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
             }
         }
     }
+}
+
+pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
+    let mut charts: HashMap<String, OngekiInfo> = HashMap::new();
+
+    set_jp_difficulty(&mut charts);
+    set_deleted_songs(&mut charts);
+    set_constants(&mut charts);
+    set_vs_character_level_element(&mut charts);
+
     Ok(charts)
 }
