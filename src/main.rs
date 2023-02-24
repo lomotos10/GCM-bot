@@ -112,21 +112,32 @@ async fn add_alias(
             &ctx.data().manual_alias_file_ongeki,
         ),
     };
-    let text = if let Some(title) = get_title(&song_title, aliases) {
+    let text = if let Some(title) =
+        get_title(&song_title, aliases, ctx.guild_id().unwrap_or(GuildId(0)))
+    {
         {
             let mut f = manual_aliases.lock().await;
-            writeln!(f, "{}\t{}", title, alias)?;
+            writeln!(
+                f,
+                "{}\t{}\t{}\t{}\t{}",
+                title,
+                alias,
+                ctx.author().name,
+                ctx.author().discriminator,
+                ctx.guild_id().unwrap_or(GuildId(0)),
+            )?;
         }
         {
             let mut log = ctx.data().alias_log.lock().await;
             writeln!(
                 log,
-                "{:?}\t{}\t{}\t{}\t{}",
-                game,
+                "{}\t{}\t{}\t{}\t{}\t{:?}",
                 title,
                 alias,
                 ctx.author().name,
-                ctx.author().id,
+                ctx.author().discriminator,
+                ctx.guild_id().unwrap_or(GuildId(0)),
+                game
             )?;
         }
         format!("Alias \"{}\" for song \"{}\" has been submitted!\nThe change will take place at 10AM KST, so please wait until then. Thank you!", alias, title)

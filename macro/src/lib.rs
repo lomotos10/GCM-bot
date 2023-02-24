@@ -27,10 +27,10 @@ pub fn jacket_template(tokens: TokenStream) -> TokenStream {
     }
 
     let code = format!("
-    let actual_title = get_title(&title, &ctx.data().{}_aliases);
+    let actual_title = get_title(&title, &ctx.data().{}_aliases, ctx.guild_id().unwrap_or(poise::serenity_prelude::GuildId(0)));
     if actual_title == None {{
         let mut log = ctx.data().alias_log.lock().await;
-        let closest = get_closest_title(&title, &ctx.data().{}_aliases);
+        let closest = get_closest_title(&title, &ctx.data().{}_aliases, ctx.guild_id().unwrap_or(poise::serenity_prelude::GuildId(0)));
         writeln!(log, \"{{}}\\t{}\\t{{}}\\t{{}}\", title, closest.0, closest.1)?;
         log.sync_all()?;
         drop(log);
@@ -74,13 +74,13 @@ Did you mean **{{}}** (for **{{}}**)?
                     }}
                 }};
                 let actual_title =
-                    get_title(&mci.data.custom_id, &ctx.data().{}_aliases).unwrap();
+                    get_title(&mci.data.custom_id, &ctx.data().{}_aliases, ctx.guild_id().unwrap_or(poise::serenity_prelude::GuildId(0))).unwrap();
                 mci.create_interaction_response(&http, |r| {{
                     r.kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|d| {{
                             let jacket = &ctx.data().{}_charts[&actual_title].jp_jacket;
                             if let Some(jacket) = jacket {{
-                                d.content(format!(\"Query by @{{}}\", ctx.author().name)).add_file(AttachmentType::Image(
+                                d.content(format!(\"Query by <@{{}}>\", ctx.author().id)).add_file(AttachmentType::Image(
                                     url::Url::parse(&format!(
                                         \"{{}}{{}}\",
                                         {},
@@ -133,13 +133,13 @@ pub fn info_template(tokens: TokenStream) -> TokenStream {
     }
 
     let code = format!("
-    let actual_title = get_title(&title, &ctx.data().{}_aliases);
+    let actual_title = get_title(&title, &ctx.data().{}_aliases, ctx.guild_id().unwrap_or(poise::serenity_prelude::GuildId(0)));
     if actual_title == None {{
         let mut log = ctx.data().alias_log.lock().await;
         writeln!(log, \"{{}}\\t{}\", title)?;
         log.sync_all()?;
         drop(log);
-        let closest = get_closest_title(&title, &ctx.data().{}_aliases);
+        let closest = get_closest_title(&title, &ctx.data().{}_aliases, ctx.guild_id().unwrap_or(poise::serenity_prelude::GuildId(0)));
         let reply = format!(
             \"I couldn't find the results for **{{}}**;
 Did you mean **{{}}** (for **{{}}**)?
@@ -180,12 +180,12 @@ Did you mean **{{}}** (for **{{}}**)?
                     }}
                 }};
                 let actual_title =
-                    get_title(&mci.data.custom_id, &ctx.data().{}_aliases).unwrap();
+                    get_title(&mci.data.custom_id, &ctx.data().{}_aliases, ctx.guild_id().unwrap_or(poise::serenity_prelude::GuildId(0))).unwrap();
                 mci.create_interaction_response(&http, |r| {{
                     r.kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|d| {{
                             // Make the message hidden for other users by setting `ephemeral(true)`.
-                            d.ephemeral(false).content(format!(\"Query by @{{}}\", ctx.author().name)).embed(|f| {{
+                            d.ephemeral(false).content(format!(\"Query by <@{{}}>\", ctx.author().id)).embed(|f| {{
                                 let (description, jacket) =
                                     get_{}_embed(actual_title.to_string(), ctx).unwrap();
 
