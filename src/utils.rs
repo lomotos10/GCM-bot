@@ -4,9 +4,9 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
-    sync::Arc,
+    sync::Arc
 };
-use strsim::jaro;
+use strsim::levenshtein;
 use tokio::sync::Mutex;
 use walkdir::WalkDir;
 
@@ -42,6 +42,7 @@ pub struct Data {
 
     pub ongeki_charts: HashMap<String, OngekiInfo>,
     pub ongeki_aliases: Aliases,
+    pub ongeki_jacket_prefix: String,
 
     pub manual_alias_file_maimai: Arc<Mutex<File>>,
     pub manual_alias_file_chuni: Arc<Mutex<File>>,
@@ -182,13 +183,21 @@ impl Difficulty {
 
 #[derive(Debug)]
 pub struct Aliases {
-    pub lowercased: HashMap<String, String>,
-    pub lowercased_and_unspaced: HashMap<String, String>,
-    pub alphanumeric_only: HashMap<String, String>,
-    pub alphanumeric_and_ascii: HashMap<String, String>,
-    pub nicknames_lowercased_and_unspaced: HashMap<String, String>,
-    pub nicknames_alphanumeric_only: HashMap<String, String>,
-    pub nicknames_alphanumeric_and_ascii: HashMap<String, String>,
+    pub main: MainAliases<String>,
+    // Outer hashmap: Maps from guild id to inner hashmap.
+    // Inner hashmap: Maps from alias to (song title, user that uploaded alias)
+    pub manual: HashMap<GuildId, MainAliases<(String, String)>>,
+}
+
+#[derive(Debug, Default)]
+pub struct MainAliases<V> {
+    pub lowercased: HashMap<String, V>,
+    pub lowercased_and_unspaced: HashMap<String, V>,
+    pub alphanumeric_only: HashMap<String, V>,
+    pub alphanumeric_and_ascii: HashMap<String, V>,
+    pub nicknames_lowercased_and_unspaced: HashMap<String, V>,
+    pub nicknames_alphanumeric_only: HashMap<String, V>,
+    pub nicknames_alphanumeric_and_ascii: HashMap<String, V>,
 }
 
 pub fn get_curl(url: &str) -> String {
@@ -212,7 +221,9 @@ pub fn get_curl(url: &str) -> String {
     s.to_string()
 }
 
-pub fn get_title(title: &str, aliases: &Aliases) -> Option<String> {
+// TODO: NEEDS REFACTOR
+pub fn get_title(title: &str, all_aliases: &Aliases, server_id: GuildId) -> Option<String> {
+    let aliases = &all_aliases.main;
     let titlem1 = title.to_lowercase();
     if let Some(a) = aliases.lowercased.get(&titlem1) {
         return Some(a.to_string());
@@ -241,6 +252,38 @@ pub fn get_title(title: &str, aliases: &Aliases) -> Option<String> {
     if let Some(a) = aliases.nicknames_alphanumeric_and_ascii.get(&title2) {
         return Some(a.to_string());
     }
+
+    let server_aliases = all_aliases.manual.get(&server_id)?;
+    let aliases = server_aliases;
+    let titlem1 = title.to_lowercase();
+    if let Some(a) = aliases.lowercased.get(&titlem1) {
+        return Some(a.1.to_string());
+    }
+    let title0 = titlem1.split_whitespace().collect::<String>();
+    if let Some(a) = aliases.lowercased_and_unspaced.get(&title0) {
+        return Some(a.1.to_string());
+    }
+    let title1 = title0
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
+    if let Some(a) = aliases.alphanumeric_only.get(&title1) {
+        return Some(a.1.to_string());
+    }
+    let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
+    if let Some(a) = aliases.alphanumeric_and_ascii.get(&title2) {
+        return Some(a.1.to_string());
+    }
+    if let Some(a) = aliases.nicknames_lowercased_and_unspaced.get(&title0) {
+        return Some(a.1.to_string());
+    }
+    if let Some(a) = aliases.nicknames_alphanumeric_only.get(&title1) {
+        return Some(a.1.to_string());
+    }
+    if let Some(a) = aliases.nicknames_alphanumeric_and_ascii.get(&title2) {
+        return Some(a.1.to_string());
+    }
+
     None
 }
 
@@ -301,9 +344,11 @@ where
         }
     }
 
+    // Set aliases
     let files = WalkDir::new("./data/aliases")
         .into_iter()
         .filter_map(|file| file.ok())
+        // filter files with correct filename
         .filter(|file| {
             file.path()
                 .file_name()
@@ -311,6 +356,18 @@ where
                 .to_str()
                 .unwrap()
                 .eq(&format!("{}.tsv", game))
+        })
+        // Filter out `manual/game.tsv`
+        .filter(|file| {
+            !file
+                .path()
+                .parent()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .eq("manual")
         })
         .map(|path| File::open(path.path()).unwrap());
     for file in files {
@@ -370,102 +427,216 @@ where
         }
     }
 
-    // I fucking hate myself but I don't have the energy to fix this
-    for (name0, title) in lowercased_and_unspaced.iter() {
-        if lowercased.contains_key(name0) {
-            // Don't delete this; it's for actual debugging!
-            if title != &lowercased_and_unspaced[name0] {
-                eprintln!(
-                    "Alias0 {} (for {}) shadowed by same alias-1 for {}",
-                    name0, title, lowercased_and_unspaced[name0]
-                );
+    // Set community aliases
+    let mut community_aliases = HashMap::<GuildId, MainAliases<(String, String)>>::new();
+    let file = File::open(format!("./data/aliases/manual/{}.tsv", game)).unwrap();
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let split = line.split('\t');
+        let split = split.collect::<Vec<_>>();
+        assert_eq!(split.len(), 5, "Community alias parse fail for line `{}`", line);
+        let title = split[0];
+        let nickname = split[1];
+        let uploader_id = split[2];
+        let uploader_dscrm = split[3];
+        let server_id = GuildId(split[4].parse::<u64>().unwrap());
+
+        let server_aliases_map = community_aliases.get_mut(&server_id);
+        let server_aliases_map = if let Some(m) = server_aliases_map {
+            m
+        } else {
+            let inserted = community_aliases.insert(server_id, MainAliases::default());
+            assert!(inserted.is_none());
+            community_aliases.get_mut(&server_id).unwrap()
+        };
+
+        let uploader_title_pair = (
+            format!("{}#{}", uploader_id, uploader_dscrm),
+            title.to_string(),
+        );
+        let nick = nickname
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<String>();
+        if !nick.is_empty() {
+            let a = server_aliases_map
+                .nicknames_lowercased_and_unspaced
+                .insert(nick.to_string(), uploader_title_pair.clone());
+            if let Some(a) = a {
+                if a.1 != title {
+                    eprintln!(
+                        "Alias2 {} (for {}) shadowed by same alias2 for {}",
+                        nick, a.1, title
+                    );
+                }
             }
         }
-    }
-    for (name1, title) in alphanumeric_only.iter() {
-        if lowercased_and_unspaced.contains_key(name1) {
-            // Don't delete this; it's for actual debugging!
-            if title != &lowercased_and_unspaced[name1] {
-                eprintln!(
-                    "Alias1 {} (for {}) shadowed by same alias0 for {}",
-                    name1, title, lowercased_and_unspaced[name1]
-                );
+        let nick = nick
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>();
+        if !nick.is_empty() {
+            let a = server_aliases_map
+                .nicknames_alphanumeric_only
+                .insert(nick.to_string(), uploader_title_pair.clone());
+            if let Some(a) = a {
+                if a.1 != title {
+                    eprintln!(
+                        "Alias3 {} (for {}) shadowed by same alias3 for {}",
+                        nick, a.1, title
+                    );
+                }
             }
         }
-    }
-    for (name2, title) in alphanumeric_and_ascii.iter() {
-        if alphanumeric_only.contains_key(name2) {
-            // Don't delete this; it's for actual debugging!
-            if title != &alphanumeric_only[name2] {
-                eprintln!(
-                    "Alias2 {} (for {}) shadowed by same alias1 for {}",
-                    name2, title, alphanumeric_only[name2]
-                );
-            }
-        }
-    }
-    for (nick, title) in nicknames_alphanumeric_and_ascii.iter() {
-        if alphanumeric_and_ascii.contains_key(nick) {
-            // Don't delete this; it's for actual debugging!
-            if title != &alphanumeric_and_ascii[nick] {
-                eprintln!(
-                    "Alias3 {} (for {}) shadowed by same alias2 for {}",
-                    nick, title, alphanumeric_and_ascii[nick]
-                );
-            }
-        }
-    }
-    for (nick, title) in nicknames_alphanumeric_only.iter() {
-        if alphanumeric_only.contains_key(nick) {
-            // Don't delete this; it's for actual debugging!
-            if title != &alphanumeric_only[nick] {
-                eprintln!(
-                    "Alias3 {} (for {}) shadowed by same alias2 for {}",
-                    nick, title, alphanumeric_only[nick]
-                );
+        let nick = nick.chars().filter(|c| c.is_ascii()).collect::<String>();
+        if !nick.is_empty() {
+            let a = server_aliases_map
+                .nicknames_alphanumeric_and_ascii
+                .insert(nick.to_string(), uploader_title_pair);
+            if let Some(a) = a {
+                if a.1 != title {
+                    eprintln!(
+                        "Alias4 {} (for {}) shadowed by same alias4 for {}",
+                        nick, a.1, title
+                    );
+                }
             }
         }
     }
 
+    // // I fucking hate myself but I don't have the energy to fix this
+    // for (name0, title) in lowercased_and_unspaced.iter() {
+    //     if lowercased.contains_key(name0) {
+    //         // Don't delete this; it's for actual debugging!
+    //         if title != &lowercased_and_unspaced[name0] {
+    //             eprintln!(
+    //                 "Alias0 {} (for {}) shadowed by same alias-1 for {}",
+    //                 name0, title, lowercased_and_unspaced[name0]
+    //             );
+    //         }
+    //     }
+    // }
+    // for (name1, title) in alphanumeric_only.iter() {
+    //     if lowercased_and_unspaced.contains_key(name1) {
+    //         // Don't delete this; it's for actual debugging!
+    //         if title != &lowercased_and_unspaced[name1] {
+    //             eprintln!(
+    //                 "Alias1 {} (for {}) shadowed by same alias0 for {}",
+    //                 name1, title, lowercased_and_unspaced[name1]
+    //             );
+    //         }
+    //     }
+    // }
+    // for (name2, title) in alphanumeric_and_ascii.iter() {
+    //     if alphanumeric_only.contains_key(name2) {
+    //         // Don't delete this; it's for actual debugging!
+    //         if title != &alphanumeric_only[name2] {
+    //             eprintln!(
+    //                 "Alias2 {} (for {}) shadowed by same alias1 for {}",
+    //                 name2, title, alphanumeric_only[name2]
+    //             );
+    //         }
+    //     }
+    // }
+    // for (nick, title) in nicknames_alphanumeric_and_ascii.iter() {
+    //     if alphanumeric_and_ascii.contains_key(nick) {
+    //         // Don't delete this; it's for actual debugging!
+    //         if title != &alphanumeric_and_ascii[nick] {
+    //             eprintln!(
+    //                 "Alias3 {} (for {}) shadowed by same alias2 for {}",
+    //                 nick, title, alphanumeric_and_ascii[nick]
+    //             );
+    //         }
+    //     }
+    // }
+    // for (nick, title) in nicknames_alphanumeric_only.iter() {
+    //     if alphanumeric_only.contains_key(nick) {
+    //         // Don't delete this; it's for actual debugging!
+    //         if title != &alphanumeric_only[nick] {
+    //             eprintln!(
+    //                 "Alias3 {} (for {}) shadowed by same alias2 for {}",
+    //                 nick, title, alphanumeric_only[nick]
+    //             );
+    //         }
+    //     }
+    // }
+
     Ok(Aliases {
-        lowercased,
-        lowercased_and_unspaced,
-        alphanumeric_only,
-        alphanumeric_and_ascii,
-        nicknames_lowercased_and_unspaced,
-        nicknames_alphanumeric_only,
-        nicknames_alphanumeric_and_ascii,
+        main: MainAliases {
+            lowercased,
+            lowercased_and_unspaced,
+            alphanumeric_only,
+            alphanumeric_and_ascii,
+            nicknames_lowercased_and_unspaced,
+            nicknames_alphanumeric_only,
+            nicknames_alphanumeric_and_ascii,
+        },
+        manual: community_aliases,
     })
 }
 
-pub fn get_closest_title(title: &str, aliases: &Aliases) -> (String, String) {
+/// TODO: REFACTOR PLEASE PLEASE PLEASE PLEASE PLEASE PLEASE PLEASE PLEASE
+pub fn get_closest_title(
+    title: &str,
+    all_aliases: &Aliases,
+    server_id: GuildId,
+) -> (String, String) {
     let mut candidates = vec![];
+    let aliases = &all_aliases.main;
+    let comm_aliases = all_aliases.manual.get(&server_id);
+    println!("{:#?}", comm_aliases);
 
     let f = |x: &HashMap<String, String>, title: &String| {
         let a = x
             .iter()
-            .map(|x| (x, OrderedFloat(jaro(x.0, title))))
-            .max_by_key(|x| x.1)
+            .map(|x| (x, levenshtein(x.0, title)))
+            .min_by_key(|x| x.1)
             .unwrap();
         ((a.0 .0.clone(), a.0 .1.clone()), a.1)
+    };
+
+    let g = |x: &HashMap<String, (String, String)>, title: &String| {
+        let a = x
+            .iter()
+            .map(|x| (x, levenshtein(x.0, title)))
+            .min_by_key(|x| x.1)
+            .unwrap();
+        ((a.0 .0.clone(), a.0 .1 .1.clone()), a.1)
     };
 
     let titlem1 = title.to_lowercase();
     candidates.push(f(&aliases.lowercased, &titlem1));
     let title0 = titlem1.split_whitespace().collect::<String>();
     candidates.push(f(&aliases.lowercased_and_unspaced, &title0));
-    candidates.push(f(&aliases.nicknames_lowercased_and_unspaced, &title0));
+    // candidates.push(f(&aliases.nicknames_lowercased_and_unspaced, &title0));
     let title1 = title0
         .chars()
         .filter(|c| c.is_alphanumeric())
         .collect::<String>();
     candidates.push(f(&aliases.alphanumeric_only, &title1));
-    candidates.push(f(&aliases.nicknames_alphanumeric_only, &title1));
+    // candidates.push(f(&aliases.nicknames_alphanumeric_only, &title1));
     let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
     candidates.push(f(&aliases.alphanumeric_and_ascii, &title2));
-    candidates.push(f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
+    // candidates.push(f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
 
-    let a = &candidates.iter().max_by_key(|x| x.1).unwrap().0;
+    if let Some(comm_aliases) = comm_aliases {
+        let titlem1 = title.to_lowercase();
+        // candidates.push(g(&comm_aliases.lowercased, &titlem1));
+        let title0 = titlem1.split_whitespace().collect::<String>();
+        // candidates.push(g(&comm_aliases.lowercased_and_unspaced, &title0));
+        candidates.push(g(&comm_aliases.nicknames_lowercased_and_unspaced, &title0));
+        let title1 = title0
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>();
+        // candidates.push(g(&comm_aliases.alphanumeric_only, &title1));
+        candidates.push(g(&comm_aliases.nicknames_alphanumeric_only, &title1));
+        let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
+        // candidates.push(g(&comm_aliases.alphanumeric_and_ascii, &title2));
+        candidates.push(g(&comm_aliases.nicknames_alphanumeric_and_ascii, &title2));
+    }
+
+    let a = &candidates.iter().min_by_key(|x| x.1).unwrap().0;
     (a.0.clone(), a.1.clone())
 }
 
