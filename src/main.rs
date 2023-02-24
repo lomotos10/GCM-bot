@@ -246,6 +246,7 @@ async fn main() {
 
                     ongeki_charts,
                     ongeki_aliases,
+                    ongeki_jacket_prefix: fs::read_to_string("data/ongeki/ongeki-jacket-prefix.txt")?,
 
                     manual_alias_file_maimai,
                     manual_alias_file_chuni,

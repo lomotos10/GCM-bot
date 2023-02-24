@@ -300,7 +300,7 @@ pub async fn ongeki_info(
     info_template!(
         "ongeki",
         "255, 127, 255",
-        "\"https://dp4p6x0xfi5o9.cloudfront.net/ongeki/img/cover/\""
+        "ctx.data().ongeki_jacket_prefix"
     );
     Ok(())
 }
@@ -354,7 +354,7 @@ pub async fn ongeki_jacket(
 ) -> Result<(), Error> {
     jacket_template!(
         "ongeki",
-        "\"https://ongeki-net.com/ongeki-mobile/img/music/\""
+        "ctx.data().ongeki_jacket_prefix"
     );
     Ok(())
 }
