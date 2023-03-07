@@ -1,10 +1,17 @@
 use ordered_float::OrderedFloat;
-use poise::serenity_prelude::{ChannelId, GuildId, UserId};
+use poise::{
+    serenity_prelude::{
+        interaction::InteractionResponseType, AttachmentType, ChannelId, CreateActionRow,
+        CreateButton, GuildId, UserId,
+    },
+    ReplyHandle,
+};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    io::{BufRead, BufReader},
-    sync::Arc
+    io::{BufRead, BufReader, Write},
+    sync::Arc,
+    time::Duration,
 };
 use strsim::levenshtein;
 use tokio::sync::Mutex;
@@ -20,7 +27,7 @@ pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 type Maps = (HashMap<UserId, i64>, HashMap<ChannelId, i64>);
 
-#[derive(Debug, poise::ChoiceParameter)]
+#[derive(Debug, poise::ChoiceParameter, Copy, Clone)]
 pub enum Game {
     #[name = "maimai"]
     Maimai,
@@ -434,7 +441,14 @@ where
     for line in lines.flatten() {
         let split = line.split('\t');
         let split = split.collect::<Vec<_>>();
-        assert_eq!(split.len(), 5, "Community alias parse fail for line `{}`", line);
+        assert!(
+            split.len() == 5 || split.len() == 1,
+            "Community alias parse fail for line `{}`",
+            line
+        );
+        if split.len() == 1 {
+            continue;
+        }
         let title = split[0];
         let nickname = split[1];
         let uploader_id = split[2];
@@ -584,7 +598,6 @@ pub fn get_closest_title(
     let mut candidates = vec![];
     let aliases = &all_aliases.main;
     let comm_aliases = all_aliases.manual.get(&server_id);
-    println!("{:#?}", comm_aliases);
 
     let f = |x: &HashMap<String, String>, title: &String| {
         let a = x
@@ -769,6 +782,7 @@ pub struct MaiInfo {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MaiSheet {
+    pub designer: Option<String>,
     pub brk: usize,
     pub hold: usize,
     pub slide: usize,
@@ -907,4 +921,129 @@ pub fn ongeki_get_category(s: &str) -> OngekiCategory {
     } else {
         panic!("Invalid ongeki song category {}", s)
     }
+}
+
+fn get_jp_jacket(ctx: Context<'_>, game: Game, title: &str) -> Option<String> {
+    match game {
+        Game::Maimai => ctx.data().mai_charts[title].jp_jacket.clone(),
+        Game::Chunithm => ctx.data().chuni_charts[title].jp_jacket.clone(),
+        Game::Ongeki => ctx.data().ongeki_charts[title].jp_jacket.clone(),
+    }
+}
+
+fn get_url_prefix(ctx: Context<'_>, game: Game) -> String {
+    match game {
+        Game::Maimai => ctx.data().mai_jacket_prefix.clone(),
+        Game::Chunithm => ctx.data().chuni_jacket_prefix.clone(),
+        Game::Ongeki => ctx.data().ongeki_jacket_prefix.clone(),
+    }
+}
+
+fn get_aliases(ctx: Context<'_>, game: Game) -> &Aliases {
+    match game {
+        Game::Maimai => &ctx.data().mai_aliases,
+        Game::Chunithm => &ctx.data().chuni_aliases,
+        Game::Ongeki => &ctx.data().ongeki_aliases,
+    }
+}
+
+pub async fn jacket_template(ctx: Context<'_>, title: String, game: Game) -> Result<(), Error> {
+    let aliases_template = get_aliases(ctx, game);
+    let actual_title = get_title(
+        &title,
+        aliases_template,
+        ctx.guild_id()
+            .unwrap_or(poise::serenity_prelude::GuildId(0)),
+    );
+    if actual_title.is_none() {
+        let mut log = ctx.data().alias_log.lock().await;
+        let closest = get_closest_title(
+            &title,
+            aliases_template,
+            ctx.guild_id()
+                .unwrap_or(poise::serenity_prelude::GuildId(0)),
+        );
+        writeln!(log, "{}\t{:?}\t{}\t{}", title, game, closest.0, closest.1)?;
+        log.sync_all()?;
+        drop(log);
+        let reply = format!(
+            "I couldn't find the results for **{}**;
+Did you mean **{}** (for **{}**)?
+(P.S. You can also use the `/add-alias` command to add this alias to the bot.)",
+            title, closest.0, closest.1
+        );
+        let sent = ctx
+            .send(|f| {
+                let mut f = f.ephemeral(true).content(reply);
+                if let Context::Application(_) = ctx {
+                    f = f.components(|c| {
+                        let mut button = CreateButton::default();
+                        button.custom_id(closest.0);
+                        button.label(format!("Yes (times out after {} seconds)", 10));
+                        let mut ar = CreateActionRow::default();
+                        ar.add_button(button);
+                        c.set_action_row(ar)
+                    })
+                }
+                f
+            })
+            .await?;
+        if let ReplyHandle::Unknown { interaction, http } = sent {
+            if let Context::Application(poise_ctx) = ctx {
+                let serenity_ctx = poise_ctx.discord;
+                let m = interaction.get_interaction_response(http).await.unwrap();
+                let mci = match m
+                    .await_component_interaction(serenity_ctx)
+                    .timeout(Duration::from_secs(10))
+                    .await
+                {
+                    Some(ci) => ci,
+                    None => {
+                        // ctx.send(|f| f.ephemeral(true).content("Timed out"))
+                        //     .await
+                        //     .unwrap();
+                        return Ok(());
+                    }
+                };
+                let actual_title = get_title(
+                    &mci.data.custom_id,
+                    aliases_template,
+                    ctx.guild_id()
+                        .unwrap_or(poise::serenity_prelude::GuildId(0)),
+                )
+                .unwrap();
+                mci.create_interaction_response(&http, |r| {
+                    r.kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|d| {
+                            let jacket = get_jp_jacket(ctx, game, &actual_title);
+                            if let Some(jacket) = jacket {
+                                d.content(format!("Query by <@{}>", ctx.author().id))
+                                    .add_file(AttachmentType::Image(
+                                        url::Url::parse(&format!(
+                                            "{}{}",
+                                            get_url_prefix(ctx, game),
+                                            jacket
+                                        ))
+                                        .unwrap(),
+                                    ));
+                            }
+                            d
+                        })
+                })
+                .await?;
+            }
+        }
+        return Ok(());
+    }
+    let title = actual_title.unwrap();
+    let jacket = get_jp_jacket(ctx, game, &title);
+    if let Some(jacket) = jacket {
+        ctx.send(|f| {
+            f.attachment(AttachmentType::Image(
+                url::Url::parse(&format!("{}{}", get_url_prefix(ctx, game), jacket)).unwrap(),
+            ))
+        })
+        .await?;
+    }
+    Ok(())
 }

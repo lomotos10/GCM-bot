@@ -8,14 +8,14 @@ use std::{
 use lazy_static::lazy_static;
 use poise::{
     serenity_prelude::{
-        self as serenity, model::interactions::InteractionResponseType, AttachmentType,
+        self as serenity, model::application::interaction::InteractionResponseType,
         CreateActionRow, CreateButton,
     },
     ReplyHandle,
 };
 
 use crate::utils::*;
-use gcm_macro::{info_template, jacket_template};
+use gcm_macro::info_template;
 
 lazy_static! {
     static ref CHUNI_INFO_REPLACEMENT: HashMap<String, String> = {
@@ -167,7 +167,7 @@ pub async fn chuni_jacket(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    jacket_template!("chuni", "ctx.data().chuni_jacket_prefix");
+    jacket_template(ctx, title, Game::Chunithm).await?;
     Ok(())
 }
 
@@ -284,37 +284,47 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
         }
     }
 
-    // Add intl level info
-    let file = File::open("data/chuni/chuni-new-plus-lv.csv")?;
-    let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
-        let line = line.split('\t').collect::<Vec<_>>();
-        assert_eq!(line.len(), 4);
-        let title = line[0];
-        let chart = charts.get_mut(title).unwrap();
-        if chart.intl_lv.is_none() {
-            chart.intl_lv = Some(Difficulty::default());
+    let jp_and_intl_version_is_different = false;
+    if jp_and_intl_version_is_different {
+        // Add intl level info
+        let file = File::open("data/chuni/chuni-new-plus-lv.csv")?;
+        let lines = BufReader::new(file).lines();
+        for line in lines.flatten() {
+            let line = line.split('\t').collect::<Vec<_>>();
+            assert_eq!(line.len(), 4);
+            let title = line[0];
+            let chart = charts.get_mut(title).unwrap();
+            if chart.intl_lv.is_none() {
+                chart.intl_lv = Some(Difficulty::default());
+            }
+            let inner = chart.intl_lv.as_mut().unwrap();
+            // Add level
+            let diff_idx = diff_to_idx(line[2]);
+            // let diff_str = inner.lv(diff_idx);
+            // assert_eq!(diff_str, "?");
+            inner.set_lv(diff_idx, line[3].to_string());
         }
-        let inner = chart.intl_lv.as_mut().unwrap();
-        // Add level
-        let diff_idx = diff_to_idx(line[2]);
-        // let diff_str = inner.lv(diff_idx);
-        // assert_eq!(diff_str, "?");
-        inner.set_lv(diff_idx, line[3].to_string());
-    }
 
-    // Add intl constant info
-    let file = File::open("data/chuni/chuni-new-plus-cst.csv")?;
-    let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
-        let line = line.split('\t').collect::<Vec<_>>();
-        assert_eq!(line.len(), 4);
-        let title = line[0];
-        let chart = charts.get_mut(title).unwrap();
-        let inner = chart.intl_lv.as_mut().unwrap();
-        let cst = float_to_constant(line[3]);
-        let diff_idx = diff_to_idx(line[2]);
-        inner.set_constant(diff_idx, cst.unwrap().to_string());
+        // Add intl constant info
+        let file = File::open("data/chuni/chuni-new-plus-cst.csv")?;
+        let lines = BufReader::new(file).lines();
+        for line in lines.flatten() {
+            let line = line.split('\t').collect::<Vec<_>>();
+            assert_eq!(line.len(), 4);
+            let title = line[0];
+            let chart = charts.get_mut(title).unwrap();
+            let inner = chart.intl_lv.as_mut().unwrap();
+            let cst = float_to_constant(line[3]);
+            let diff_idx = diff_to_idx(line[2]);
+            inner.set_constant(diff_idx, cst.unwrap().to_string());
+        }
+    } else {
+        // Same version; copy jp difficulty into intl
+        for info in charts.values_mut() {
+            if info.jp_lv.is_some() {
+                info.intl_lv = info.jp_lv.clone();
+            }
+        }
     }
 
     // Get constants
@@ -388,6 +398,14 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             };
             if c != 0.0 {
                 difficulty.set_constant(diff_c, c.to_string());
+                // Set intl cc too, if song isn't deleted.
+                if !jp_and_intl_version_is_different && chart.intl_lv.is_some() {
+                    chart
+                        .intl_lv
+                        .as_mut()
+                        .unwrap()
+                        .set_constant(diff_c, c.to_string());
+                }
             }
 
             // Set difficulty by region.

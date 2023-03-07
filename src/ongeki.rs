@@ -7,14 +7,14 @@ use std::{
 
 use poise::{
     serenity_prelude::{
-        self as serenity, model::interactions::InteractionResponseType, AttachmentType,
+        self as serenity, model::application::interaction::InteractionResponseType,
         CreateActionRow, CreateButton,
     },
     ReplyHandle,
 };
 
 use crate::utils::*;
-use gcm_macro::{info_template, jacket_template};
+use gcm_macro::info_template;
 
 lazy_static::lazy_static! {
     static ref LV_SOURCE_REPLACEMENT: HashMap<String, String> = {
@@ -297,11 +297,7 @@ pub async fn ongeki_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_template!(
-        "ongeki",
-        "255, 127, 255",
-        "ctx.data().ongeki_jacket_prefix"
-    );
+    info_template!("ongeki", "255, 127, 255", "ctx.data().ongeki_jacket_prefix");
     Ok(())
 }
 
@@ -352,10 +348,7 @@ pub async fn ongeki_jacket(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    jacket_template!(
-        "ongeki",
-        "ctx.data().ongeki_jacket_prefix"
-    );
+    jacket_template(ctx, title, Game::Ongeki).await?;
     Ok(())
 }
 

@@ -6,12 +6,12 @@ use std::{
     time::Duration,
 };
 
-use gcm_macro::{info_template, jacket_template};
+use gcm_macro::info_template;
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
 use poise::{
     serenity_prelude::{
-        self as serenity, model::interactions::InteractionResponseType, AttachmentType,
+        self as serenity, model::application::interaction::InteractionResponseType,
         CreateActionRow, CreateButton,
     },
     ReplyHandle,
@@ -234,7 +234,7 @@ pub async fn mai_jacket(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    jacket_template!("mai", "ctx.data().mai_jacket_prefix");
+    jacket_template(ctx, title, Game::Maimai).await?;
     Ok(())
 }
 
@@ -637,14 +637,25 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
             title.to_string()
         };
 
+        let exists_in_jp = song["sheets"].as_array().unwrap()[0].as_object().unwrap()["regions"]
+            .as_object()
+            .unwrap()["jp"]
+            .as_bool()
+            .unwrap();
+        let exists_in_intl = song["sheets"].as_array().unwrap()[0].as_object().unwrap()["regions"]
+            .as_object()
+            .unwrap()["intl"]
+            .as_bool()
+            .unwrap();
+
         if !charts.contains_key(&title) {
-            // Is either Utage or deleted
+            // Is either Utage, deleted, or intl only
             if song.get("category").unwrap() == "宴会場" {
                 // Utage
                 // TODO
                 continue;
             } else {
-                // Deleted
+                // Deleted or intl only
                 let title = song.get("title").unwrap().as_str().unwrap();
                 charts.insert(
                     title.to_string(),
@@ -658,7 +669,7 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
                         dx_sheets: vec![],
                         st_sheets: vec![],
                         version: None,
-                        deleted: true,
+                        deleted: !exists_in_intl,
                         order: None,
                         category: mai_get_category(song["category"].as_str().unwrap()),
                     },
@@ -685,7 +696,9 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
             // if notes["tap"].is_null() {
             //     break;
             // }
+            let designer = sheet["noteDesigner"].as_str().map(|s| s.to_string());
             let sheet_info = MaiSheet {
+                designer,
                 brk: notes["break"].as_u64().unwrap_or(99999) as usize,
                 hold: notes["hold"].as_u64().unwrap_or(99999) as usize,
                 slide: notes["slide"].as_u64().unwrap_or(99999) as usize,
@@ -815,7 +828,8 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
                 .get("version")
                 .map(|s| s.as_str().unwrap().to_string())
         } else {
-            song.get("version").map(|s| s.as_str().unwrap().to_string())
+            song.get("version")
+                .map(|s| s.as_str().unwrap_or("N/A").to_string())
         };
 
         r.jp_jacket = Some(jp_jacket);
@@ -852,59 +866,67 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) {
             if let Some(artist) = song.get("artist") {
                 r.artist = artist.as_str().unwrap().to_string();
             }
-            let dx_diff = if !dx_levels.is_empty() {
-                let mut dx_diff = Difficulty {
-                    bas: dx_levels[0].as_str().unwrap().to_string(),
-                    adv: dx_levels[1].as_str().unwrap().to_string(),
-                    exp: dx_levels[2].as_str().unwrap().to_string(),
-                    mas: dx_levels[3].as_str().unwrap().to_string(),
-                    extra: dx_levels.get(4).map(|x| x.as_str().unwrap().to_string()),
 
-                    ..Default::default()
-                };
-                if !dx_constants.is_empty() {
-                    dx_diff.bas_c = dx_constants[0];
-                    dx_diff.adv_c = dx_constants[1];
-                    dx_diff.exp_c = dx_constants[2];
-                    dx_diff.mas_c = dx_constants[3];
-                    if let Some(rem_c) = dx_constants.get(4) {
-                        dx_diff.extra_c = *rem_c;
+            if r.deleted || (!exists_in_jp && exists_in_intl) {
+                let dx_diff = if !dx_levels.is_empty() {
+                    let mut dx_diff = Difficulty {
+                        bas: dx_levels[0].as_str().unwrap().to_string(),
+                        adv: dx_levels[1].as_str().unwrap().to_string(),
+                        exp: dx_levels[2].as_str().unwrap().to_string(),
+                        mas: dx_levels[3].as_str().unwrap().to_string(),
+                        extra: dx_levels.get(4).map(|x| x.as_str().unwrap().to_string()),
+
+                        ..Default::default()
+                    };
+                    if !dx_constants.is_empty() {
+                        dx_diff.bas_c = dx_constants[0];
+                        dx_diff.adv_c = dx_constants[1];
+                        dx_diff.exp_c = dx_constants[2];
+                        dx_diff.mas_c = dx_constants[3];
+                        if let Some(rem_c) = dx_constants.get(4) {
+                            dx_diff.extra_c = *rem_c;
+                        }
                     }
-                }
-                Some(dx_diff)
-            } else {
-                None
-            };
-
-            let st_diff = if !st_levels.is_empty() {
-                let mut st_diff = Difficulty {
-                    bas: st_levels[0].as_str().unwrap().to_string(),
-                    adv: st_levels[1].as_str().unwrap().to_string(),
-                    exp: st_levels[2].as_str().unwrap().to_string(),
-                    mas: st_levels[3].as_str().unwrap().to_string(),
-                    extra: st_levels.get(4).map(|x| x.as_str().unwrap().to_string()),
-
-                    ..Default::default()
+                    Some(dx_diff)
+                } else {
+                    None
                 };
-                if !st_constants.is_empty() {
-                    st_diff.bas_c = st_constants[0];
-                    st_diff.adv_c = st_constants[1];
-                    st_diff.exp_c = st_constants[2];
-                    st_diff.mas_c = st_constants[3];
-                    if let Some(rem_c) = st_constants.get(4) {
-                        st_diff.extra_c = *rem_c;
-                    }
-                }
-                Some(st_diff)
-            } else {
-                None
-            };
 
-            if r.deleted {
-                r.jp_lv = Some(MaiDifficulty {
-                    dx: dx_diff,
-                    st: st_diff,
-                })
+                let st_diff = if !st_levels.is_empty() {
+                    let mut st_diff = Difficulty {
+                        bas: st_levels[0].as_str().unwrap().to_string(),
+                        adv: st_levels[1].as_str().unwrap().to_string(),
+                        exp: st_levels[2].as_str().unwrap().to_string(),
+                        mas: st_levels[3].as_str().unwrap().to_string(),
+                        extra: st_levels.get(4).map(|x| x.as_str().unwrap().to_string()),
+
+                        ..Default::default()
+                    };
+                    if !st_constants.is_empty() {
+                        st_diff.bas_c = st_constants[0];
+                        st_diff.adv_c = st_constants[1];
+                        st_diff.exp_c = st_constants[2];
+                        st_diff.mas_c = st_constants[3];
+                        if let Some(rem_c) = st_constants.get(4) {
+                            st_diff.extra_c = *rem_c;
+                        }
+                    }
+                    Some(st_diff)
+                } else {
+                    None
+                };
+
+                if r.deleted {
+                    r.jp_lv = Some(MaiDifficulty {
+                        dx: dx_diff,
+                        st: st_diff,
+                    })
+                } else if !exists_in_jp && exists_in_intl {
+                    r.intl_lv = Some(MaiDifficulty {
+                        dx: dx_diff,
+                        st: st_diff,
+                    })
+                }
             }
         }
     }
