@@ -1,7 +1,7 @@
 use ordered_float::OrderedFloat;
 use poise::{
     serenity_prelude::{
-        interaction::InteractionResponseType, AttachmentType, ChannelId, CreateActionRow,
+        model::application::interaction::InteractionResponseType, AttachmentType, ChannelId, Color, CreateActionRow,
         CreateButton, GuildId, UserId,
     },
     ReplyHandle,
@@ -1045,5 +1045,162 @@ Did you mean **{}** (for **{}**)?
         })
         .await?;
     }
+    Ok(())
+}
+
+pub async fn info_refactored_template(
+    ctx: Context<'_>,
+    title: String,
+    game: Game,
+    get_embed: Arc<dyn Fn(String, &Context<'_>) -> Result<(String, Option<String>), Error> + Sync + Send>,
+    color: (u8, u8, u8),
+    duplicate_alias_to_title: Arc<dyn Fn(&String) -> String + Sync + Send>,
+) -> Result<(), Error> {
+    let aliases = get_aliases(ctx, game);
+    // let actual_title = get_title(
+    //     &title,
+    //     aliases_template,
+    //     ctx.guild_id()
+    //         .unwrap_or(poise::serenity_prelude::GuildId(0)),
+    // );
+    let actual_title = get_title(
+        &title,
+        aliases,
+        ctx.guild_id()
+            .unwrap_or(poise::serenity_prelude::GuildId(0)),
+    );
+    if actual_title == None {
+        let mut log = ctx.data().alias_log.lock().await;
+        writeln!(log, "{}\t{:?}", title, game)?;
+        log.sync_all()?;
+        drop(log);
+        let closest = get_closest_title(
+            &title,
+            aliases,
+            ctx.guild_id()
+                .unwrap_or(poise::serenity_prelude::GuildId(0)),
+        );
+        let reply = format!(
+            "I couldn't find the results for **{}**;
+Did you mean **{}** (for **{}**)?
+(P.S. You can also use the `/add-alias` command to add this alias to the bot.)",
+            title, closest.0, closest.1
+        );
+        let sent = ctx
+            .send(|f| {
+                let mut f = f.ephemeral(true).content(reply);
+                if let Context::Application(_) = ctx {
+                    f = f.components(|c| {
+                        let mut button = CreateButton::default();
+                        button.custom_id(closest.0);
+                        button.label(format!("Yes (times out after {} seconds)", 10));
+                        let mut ar = CreateActionRow::default();
+                        ar.add_button(button);
+                        c.set_action_row(ar)
+                    })
+                }
+                f
+            })
+            .await?;
+        if let ReplyHandle::Unknown { interaction, http } = sent {
+            if let Context::Application(poise_ctx) = ctx {
+                let serenity_ctx = poise_ctx.discord;
+                let m = interaction.get_interaction_response(http).await.unwrap();
+                let mci = match m
+                    .await_component_interaction(&serenity_ctx)
+                    .timeout(Duration::from_secs(10))
+                    .await
+                {
+                    Some(ci) => ci,
+                    None => {
+                        // ctx.send(|f| f.ephemeral(true).content("Timed out"))
+                        //     .await
+                        //     .unwrap();
+                        return Ok(());
+                    }
+                };
+                let actual_title = get_title(
+                    &mci.data.custom_id,
+                    aliases,
+                    ctx.guild_id()
+                        .unwrap_or(poise::serenity_prelude::GuildId(0)),
+                )
+                .unwrap();
+                mci.create_interaction_response(&http, |r| {
+                    r.kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|d| {
+                            // Make the message hidden for other users by setting `ephemeral(true)`.
+                            d.ephemeral(false)
+                                .content(format!("Query by <@{}>", ctx.author().id))
+                                .embed(|f| {
+                                    let (description, jacket) =
+                                        get_embed(actual_title.to_string(), &ctx).unwrap();
+
+                                    let mut f = f
+                                        .title(duplicate_alias_to_title(&actual_title))
+                                        .description(description)
+                                        .color(Color::from_rgb(color.0, color.1, color.2));
+                                    if let Some(jacket) = jacket {
+                                        f = f.thumbnail(format!(
+                                            "{}{}",
+                                            get_url_prefix(ctx, game),
+                                            jacket
+                                        ));
+                                    }
+
+                                    f
+                                })
+                        })
+                })
+                .await?;
+            }
+        }
+        return Ok(());
+    }
+
+    match check_cooldown(&ctx).await {
+        Cooldown::Channel(t) => {
+            let is_slash_command = matches!(&ctx, poise::Context::Application(_));
+            ctx.send(|f| {
+                f.ephemeral(is_slash_command).content(format!(
+                    "Channel cooldown: please wait {} seconds and try again, or try the #bot-commands channel for no cooldown.",
+                    t
+                ))
+            })
+            .await?;
+            return Ok(());
+        }
+        Cooldown::User(t) => {
+            if let poise::Context::Application(_) = &ctx {
+                ctx.send(|f| {
+                    f.ephemeral(true).content(format!(
+                        "Channel cooldown: please wait {} seconds and try again, or try the #bot-commands channel for no cooldown.",
+                        t
+                    ))
+                })
+                .await?;
+            }
+            return Ok(());
+        }
+        Cooldown::None => (),
+    }
+    let title = actual_title.unwrap();
+    let (description, jacket) = get_embed(title.clone(), &ctx)?;
+
+    ctx.send(|f| {
+        f.embed(|f| {
+            let mut f = f
+                .title(duplicate_alias_to_title(&title).replace('*', "\\*"))
+                .description(description)
+                .color(Color::from_rgb(color.0, color.1, color.2));
+            if let Some(jacket) = jacket {
+                f = f.thumbnail(format!("{}{}", get_url_prefix(ctx, game), jacket));
+            }
+
+            f
+        })
+    })
+    .await?;
+    // , game, game, game, game, game, game, color, jacket_url, game, game, color, jacket_url);
     Ok(())
 }

@@ -1,21 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File},
-    io::Write,
-    io::{BufRead, BufReader},
-    time::Duration,
+    io::{BufRead, BufReader}, sync::Arc,
 };
 
-use gcm_macro::info_template;
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
-use poise::{
-    serenity_prelude::{
-        self as serenity, model::application::interaction::InteractionResponseType,
-        CreateActionRow, CreateButton,
-    },
-    ReplyHandle,
-};
 
 use crate::utils::*;
 
@@ -55,7 +45,7 @@ lazy_static! {
     };
 }
 
-fn get_mai_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<String>), Error> {
+fn get_mai_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<String>), Error> {
     let song = ctx.data().mai_charts.get(&title);
 
     let song = song.unwrap();
@@ -187,8 +177,6 @@ fn mai_duplicate_alias_to_title(title: &String) -> String {
     }
 }
 
-extern crate gcm_macro;
-
 /// Get maimai song info
 #[poise::command(slash_command, prefix_command, rename = "mai-info")]
 pub async fn mai_info(
@@ -197,7 +185,14 @@ pub async fn mai_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_template!("mai", "0, 255, 255", "ctx.data().mai_jacket_prefix");
+    info_refactored_template(
+        ctx,
+        title,
+        Game::Maimai,
+        Arc::new(get_mai_embed),
+        (0, 255, 255),
+        Arc::new(mai_duplicate_alias_to_title),
+    ).await?;
     Ok(())
 }
 

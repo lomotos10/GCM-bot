@@ -21,7 +21,6 @@ ordered-float = "3.0.0"
 walkdir = "2"
 syn = {version="1.0.57",features=["full","fold"]}
 quote = "1.0.8"
-gcm-macro = {path = "macro"}
 html_parser = "0.6.3"
 chrono = "0.4"
 urlencoding = "2.1.0"

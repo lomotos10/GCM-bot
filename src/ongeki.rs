@@ -1,20 +1,9 @@
 use std::{
     collections::HashMap,
-    fs::{self},
-    io::Write,
-    time::Duration,
-};
-
-use poise::{
-    serenity_prelude::{
-        self as serenity, model::application::interaction::InteractionResponseType,
-        CreateActionRow, CreateButton,
-    },
-    ReplyHandle,
+    fs::{self}, sync::Arc,
 };
 
 use crate::utils::*;
-use gcm_macro::info_template;
 
 lazy_static::lazy_static! {
     static ref LV_SOURCE_REPLACEMENT: HashMap<String, String> = {
@@ -203,7 +192,7 @@ lazy_static::lazy_static! {
     ].iter().map(|s| s.to_string()).collect();
 }
 
-fn get_ongeki_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<String>), Error> {
+fn get_ongeki_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<String>), Error> {
     let song = ctx.data().ongeki_charts.get(&title);
 
     let song = song.unwrap();
@@ -297,7 +286,15 @@ pub async fn ongeki_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_template!("ongeki", "255, 127, 255", "ctx.data().ongeki_jacket_prefix");
+    info_refactored_template(
+        ctx,
+        title,
+        Game::Ongeki,
+        Arc::new(get_ongeki_embed),
+        (255, 127, 255),
+        Arc::new(ongeki_duplicate_alias_to_title),
+    ).await?;
+    // info_template!("ongeki", "255, 127, 255", "ctx.data().ongeki_jacket_prefix");
     Ok(())
 }
 

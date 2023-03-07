@@ -1,21 +1,12 @@
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{BufRead, BufReader, Write},
-    time::Duration,
+    io::{BufRead, BufReader}, sync::Arc,
 };
 
 use lazy_static::lazy_static;
-use poise::{
-    serenity_prelude::{
-        self as serenity, model::application::interaction::InteractionResponseType,
-        CreateActionRow, CreateButton,
-    },
-    ReplyHandle,
-};
 
 use crate::utils::*;
-use gcm_macro::info_template;
 
 lazy_static! {
     static ref CHUNI_INFO_REPLACEMENT: HashMap<String, String> = {
@@ -48,7 +39,7 @@ lazy_static! {
     };
 }
 
-fn get_chuni_embed(title: String, ctx: Context<'_>) -> Result<(String, Option<String>), Error> {
+fn get_chuni_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<String>), Error> {
     let song = ctx.data().chuni_charts.get(&title);
 
     let song = song.unwrap();
@@ -131,7 +122,14 @@ pub async fn chuni_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_template!("chuni", "255, 255, 0", "ctx.data().chuni_jacket_prefix");
+    info_refactored_template(
+        ctx,
+        title,
+        Game::Chunithm,
+        Arc::new(get_chuni_embed),
+        (255, 255, 0),
+        Arc::new(chuni_duplicate_alias_to_title),
+    ).await?;
     Ok(())
 }
 
