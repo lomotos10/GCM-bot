@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
-    fs::{self}, sync::Arc,
+    fs::{self},
+    sync::Arc,
 };
 
 use crate::utils::*;
@@ -286,14 +287,15 @@ pub async fn ongeki_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_refactored_template(
+    info_template(
         ctx,
         title,
         Game::Ongeki,
         Arc::new(get_ongeki_embed),
         (255, 127, 255),
         Arc::new(ongeki_duplicate_alias_to_title),
-    ).await?;
+    )
+    .await?;
     // info_template!("ongeki", "255, 127, 255", "ctx.data().ongeki_jacket_prefix");
     Ok(())
 }

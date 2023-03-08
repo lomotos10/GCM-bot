@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{BufRead, BufReader}, sync::Arc,
+    io::{BufRead, BufReader},
+    sync::Arc,
 };
 
 use lazy_static::lazy_static;
@@ -122,14 +123,15 @@ pub async fn chuni_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_refactored_template(
+    info_template(
         ctx,
         title,
         Game::Chunithm,
         Arc::new(get_chuni_embed),
         (255, 255, 0),
         Arc::new(chuni_duplicate_alias_to_title),
-    ).await?;
+    )
+    .await?;
     Ok(())
 }
 

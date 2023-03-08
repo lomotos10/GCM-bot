@@ -1,8 +1,8 @@
 use ordered_float::OrderedFloat;
 use poise::{
     serenity_prelude::{
-        model::application::interaction::InteractionResponseType, AttachmentType, ChannelId, Color, CreateActionRow,
-        CreateButton, GuildId, UserId,
+        model::application::interaction::InteractionResponseType, AttachmentType, ChannelId, Color,
+        CreateActionRow, CreateButton, GuildId, UserId,
     },
     ReplyHandle,
 };
@@ -1048,11 +1048,14 @@ Did you mean **{}** (for **{}**)?
     Ok(())
 }
 
-pub async fn info_refactored_template(
+type GetEmbed =
+    Arc<dyn Fn(String, &Context<'_>) -> Result<(String, Option<String>), Error> + Sync + Send>;
+
+pub async fn info_template(
     ctx: Context<'_>,
     title: String,
     game: Game,
-    get_embed: Arc<dyn Fn(String, &Context<'_>) -> Result<(String, Option<String>), Error> + Sync + Send>,
+    get_embed: GetEmbed,
     color: (u8, u8, u8),
     duplicate_alias_to_title: Arc<dyn Fn(&String) -> String + Sync + Send>,
 ) -> Result<(), Error> {
@@ -1069,7 +1072,7 @@ pub async fn info_refactored_template(
         ctx.guild_id()
             .unwrap_or(poise::serenity_prelude::GuildId(0)),
     );
-    if actual_title == None {
+    if actual_title.is_none() {
         let mut log = ctx.data().alias_log.lock().await;
         writeln!(log, "{}\t{:?}", title, game)?;
         log.sync_all()?;
@@ -1107,7 +1110,7 @@ Did you mean **{}** (for **{}**)?
                 let serenity_ctx = poise_ctx.discord;
                 let m = interaction.get_interaction_response(http).await.unwrap();
                 let mci = match m
-                    .await_component_interaction(&serenity_ctx)
+                    .await_component_interaction(serenity_ctx)
                     .timeout(Duration::from_secs(10))
                     .await
                 {
@@ -1201,6 +1204,5 @@ Did you mean **{}** (for **{}**)?
         })
     })
     .await?;
-    // , game, game, game, game, game, game, color, jacket_url, game, game, color, jacket_url);
     Ok(())
 }
