@@ -1,11 +1,19 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File},
-    io::{BufRead, BufReader}, sync::Arc,
+    io::{BufRead, BufReader, Write},
+    sync::Arc,
+    time::Duration,
 };
 
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
+use poise::{
+    serenity_prelude::{
+        interaction::InteractionResponseType, Color, CreateActionRow, CreateButton,
+    },
+    ReplyHandle,
+};
 
 use crate::utils::*;
 
@@ -185,14 +193,15 @@ pub async fn mai_info(
     #[rest]
     title: String,
 ) -> Result<(), Error> {
-    info_refactored_template(
+    info_template(
         ctx,
         title,
         Game::Maimai,
         Arc::new(get_mai_embed),
         (0, 255, 255),
         Arc::new(mai_duplicate_alias_to_title),
-    ).await?;
+    )
+    .await?;
     Ok(())
 }
 
@@ -1004,4 +1013,184 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     set_manual_constants(&mut charts);
 
     Ok(charts)
+}
+
+fn mai_chart_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<String>), Error> {
+    let song = ctx.data().mai_charts.get(&title);
+    let song = song.unwrap();
+
+    let mut embed =
+        String::from("Chart info legend:\n**Total notes** / Tap / Hold / Slide / Touch / Break");
+
+    let squares = ["green", "yellow", "red", "purple", "white"];
+
+    if !song.dx_sheets.is_empty() {
+        let mut dx_str = String::from("**DX Chart Info:**");
+        for (idx, sheet) in song.dx_sheets.iter().enumerate() {
+            dx_str.push_str(&format!(
+                "\n:{}_square: Lv.{}  Designer: {}",
+                squares[idx],
+                song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap().lv(idx),
+                sheet.designer.as_ref().unwrap_or(&"-".to_string())
+            ));
+            let total = sheet.brk + sheet.tap + sheet.hold + sheet.slide + sheet.brk;
+            if total >= 99999 {
+                continue;
+            }
+            dx_str.push_str(&format!(
+                "\n**{}** / {} / {} / {} / {} / {}",
+                total, sheet.tap, sheet.hold, sheet.slide, sheet.touch, sheet.brk
+            ));
+        }
+        embed.push_str("\n\n");
+        embed.push_str(&dx_str);
+    }
+
+    if !song.st_sheets.is_empty() {
+        let mut st_str = String::from("**ST Chart Info:**");
+        for (idx, sheet) in song.st_sheets.iter().enumerate() {
+            st_str.push_str(&format!(
+                "\n:{}_square: Lv.{}  Designer: {}",
+                squares[idx],
+                song.jp_lv.as_ref().unwrap().st.as_ref().unwrap().lv(idx),
+                sheet.designer.as_ref().unwrap_or(&"-".to_string())
+            ));
+            let total = sheet.brk + sheet.tap + sheet.hold + sheet.slide + sheet.brk;
+            if total >= 99999 {
+                continue;
+            }
+            st_str.push_str(&format!(
+                "\n**{}** / {} / {} / {} / {} / {}",
+                total, sheet.tap, sheet.hold, sheet.slide, sheet.touch, sheet.brk
+            ));
+        }
+        embed.push_str("\n\n");
+        embed.push_str(&st_str);
+    }
+
+    Ok((embed, song.jp_jacket.clone()))
+}
+
+/// Get info about song charts in maimai
+#[poise::command(slash_command, prefix_command, rename = "mai-chart")]
+pub async fn mai_chart(
+    ctx: Context<'_>,
+    #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
+    #[rest]
+    title: String,
+) -> Result<(), Error> {
+    let aliases = &ctx.data().mai_aliases;
+    let actual_title = get_title(
+        &title,
+        aliases,
+        ctx.guild_id()
+            .unwrap_or(poise::serenity_prelude::GuildId(0)),
+    );
+    if actual_title.is_none() {
+        let mut log = ctx.data().alias_log.lock().await;
+        writeln!(log, "{}\tmaimai", title)?;
+        log.sync_all()?;
+        drop(log);
+        let closest = get_closest_title(
+            &title,
+            aliases,
+            ctx.guild_id()
+                .unwrap_or(poise::serenity_prelude::GuildId(0)),
+        );
+        let reply = format!(
+            "I couldn't find the results for **{}**;
+Did you mean **{}** (for **{}**)?
+(P.S. You can also use the `/add-alias` command to add this alias to the bot.)",
+            title, closest.0, closest.1
+        );
+        let sent = ctx
+            .send(|f| {
+                let mut f = f.ephemeral(true).content(reply);
+                if let Context::Application(_) = ctx {
+                    f = f.components(|c| {
+                        let mut button = CreateButton::default();
+                        button.custom_id(closest.0);
+                        button.label(format!("Yes (times out after {} seconds)", 10));
+                        let mut ar = CreateActionRow::default();
+                        ar.add_button(button);
+                        c.set_action_row(ar)
+                    })
+                }
+                f
+            })
+            .await?;
+        if let ReplyHandle::Unknown { interaction, http } = sent {
+            if let Context::Application(poise_ctx) = ctx {
+                let serenity_ctx = poise_ctx.discord;
+                let m = interaction.get_interaction_response(http).await.unwrap();
+                let mci = match m
+                    .await_component_interaction(serenity_ctx)
+                    .timeout(Duration::from_secs(10))
+                    .await
+                {
+                    Some(ci) => ci,
+                    None => {
+                        // ctx.send(|f| f.ephemeral(true).content("Timed out"))
+                        //     .await
+                        //     .unwrap();
+                        return Ok(());
+                    }
+                };
+                let actual_title = get_title(
+                    &mci.data.custom_id,
+                    aliases,
+                    ctx.guild_id()
+                        .unwrap_or(poise::serenity_prelude::GuildId(0)),
+                )
+                .unwrap();
+                mci.create_interaction_response(&http, |r| {
+                    r.kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|d| {
+                            // Make the message hidden for other users by setting `ephemeral(true)`.
+                            d.ephemeral(false)
+                                .content(format!("Query by <@{}>", ctx.author().id))
+                                .embed(|f| {
+                                    let (description, jacket) =
+                                        mai_chart_embed(actual_title.to_string(), &ctx).unwrap();
+
+                                    let mut f = f
+                                        .title(mai_duplicate_alias_to_title(&actual_title))
+                                        .description(description)
+                                        .color(Color::from_rgb(0, 255, 255));
+                                    if let Some(jacket) = jacket {
+                                        f = f.thumbnail(format!(
+                                            "{}{}",
+                                            ctx.data().mai_jacket_prefix,
+                                            jacket
+                                        ));
+                                    }
+
+                                    f
+                                })
+                        })
+                })
+                .await?;
+            }
+        }
+        return Ok(());
+    }
+
+    let title = actual_title.unwrap();
+    let (description, jacket) = mai_chart_embed(title.clone(), &ctx)?;
+
+    ctx.send(|f| {
+        f.embed(|f| {
+            let mut f = f
+                .title(mai_duplicate_alias_to_title(&title).replace('*', "\\*"))
+                .description(description)
+                .color(Color::from_rgb(0, 255, 255));
+            if let Some(jacket) = jacket {
+                f = f.thumbnail(format!("{}{}", ctx.data().mai_jacket_prefix, jacket));
+            }
+
+            f
+        })
+    })
+    .await?;
+    Ok(())
 }

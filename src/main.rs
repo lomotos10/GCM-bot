@@ -164,6 +164,7 @@ async fn main() {
             commands: vec![
                 mai_info(),
                 mai_jacket(),
+                mai_chart(),
                 chuni_info(),
                 chuni_jacket(),
                 ongeki_info(),
