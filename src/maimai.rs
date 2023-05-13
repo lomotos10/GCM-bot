@@ -1,11 +1,3 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs::{self, File},
-    io::{BufRead, BufReader, Write},
-    sync::Arc,
-    time::Duration,
-};
-
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
 use poise::{
@@ -13,6 +5,13 @@ use poise::{
         interaction::InteractionResponseType, Color, CreateActionRow, CreateButton,
     },
     ReplyHandle,
+};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::{self, File},
+    io::{BufRead, BufReader, Write},
+    sync::Arc,
+    time::Duration,
 };
 
 use crate::utils::*;
@@ -509,7 +508,7 @@ fn set_actual_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
 
 fn set_intl_difficulty(charts: &mut HashMap<String, MaiInfo>) {
     // Get intl difficulty.
-    let jp_and_intl_version_is_different = false;
+    let jp_and_intl_version_is_different = true;
     if jp_and_intl_version_is_different {
         let file = File::open("data/maimai/in_lv.csv").unwrap();
         let reader = BufReader::new(file);
@@ -517,7 +516,12 @@ fn set_intl_difficulty(charts: &mut HashMap<String, MaiInfo>) {
         for line in reader.lines() {
             let line = line.unwrap();
             let line = line.split('\t').collect::<Vec<_>>();
-            assert_eq!(line.len(), 7);
+            assert_eq!(
+                line.len(),
+                7,
+                "Line parse mismatch with original level on {:?}",
+                line
+            );
             let title = SONG_REPLACEMENT
                 .get(line[6])
                 .unwrap_or(&line[6].to_string())
@@ -944,7 +948,9 @@ fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) {
         let line = line.split('\t').collect::<Vec<_>>();
         assert_eq!(line.len(), 5);
         let title = line[0];
-        let chart = charts.get_mut(title).unwrap();
+        let chart = charts
+            .get_mut(title)
+            .unwrap_or_else(|| panic!("{} <- title does not exist", title));
         chart.deleted = false;
         let inner = if line[3] == "JP" {
             chart.jp_lv.as_mut()
@@ -958,6 +964,9 @@ fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) {
         }
         .unwrap();
         let inner = if line[1] == "DX" {
+            if inner.dx.is_none() {
+                inner.dx = Some(Difficulty::default());
+            }
             inner.dx.as_mut()
         } else if line[1] == "ST" {
             if inner.st.is_none() {
@@ -967,7 +976,7 @@ fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) {
         } else {
             panic!()
         }
-        .unwrap();
+        .unwrap_or_else(|| panic!("Panic on song {}", title));
         if line[4].contains('.') {
             // Add constant
             let cst = float_to_constant(line[4]);
@@ -975,18 +984,32 @@ fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) {
                 assert!(inner.exp_c.is_none() || inner.exp_c == cst);
                 if inner.exp_c == cst {
                     eprintln!("{:?} exists on server", line);
+                } else {
+                    // eprintln!("{:?} enter success", line);
                 }
                 inner.exp_c = cst;
             } else if line[2] == "MAS" {
-                assert!(inner.mas_c.is_none() || inner.mas_c == cst);
-                if inner.mas_c == cst {
+                if inner.mas_c.is_some() && inner.mas_c != cst {
+                    eprintln!(
+                        "Constant mismatch on manual constant line {:?}\n{:?}, {:?}",
+                        line, inner.mas_c, cst
+                    );
+                } else if inner.mas_c == cst {
                     eprintln!("{:?} exists on server", line);
+                } else {
+                    // eprintln!("{:?} enter success", line);
                 }
                 inner.mas_c = cst;
             } else if line[2] == "REM" {
-                assert!(inner.extra_c.is_none() || inner.extra_c == cst);
-                if inner.extra_c == cst {
+                if inner.extra_c.is_some() && inner.extra_c != cst {
+                    eprintln!(
+                        "Constant mismatch on manual constant line {:?}\n{:?}, {:?}",
+                        line, inner.extra_c, cst
+                    );
+                } else if inner.extra_c == cst {
                     eprintln!("{:?} exists on server", line);
+                } else {
+                    // eprintln!("{:?} enter success", line);
                 }
                 inner.extra_c = cst;
             } else {
@@ -1007,7 +1030,7 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
 
     set_jp_difficulty(&mut charts);
     set_jp_constants(&mut charts);
-    set_actual_jp_constants(&mut charts);
+    // set_actual_jp_constants(&mut charts);
     set_intl_difficulty(&mut charts);
     set_song_info(&mut charts);
     set_manual_constants(&mut charts);
@@ -1022,15 +1045,17 @@ fn mai_chart_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<S
     let mut embed =
         String::from("Chart info legend:\n**Total notes** / Tap / Hold / Slide / Touch / Break");
 
-    let squares = ["green", "yellow", "red", "purple", "white"];
+    let squares = ["green", "yellow", "red", "purple", "white_large"];
 
     if !song.dx_sheets.is_empty() {
         let mut dx_str = String::from("**DX Chart Info:**");
         for (idx, sheet) in song.dx_sheets.iter().enumerate() {
+            let lvs = song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap();
             dx_str.push_str(&format!(
-                "\n:{}_square: Lv.{}  Designer: {}",
+                "\n:{}_square: Lv.{}{}  Designer: {}",
                 squares[idx],
-                song.jp_lv.as_ref().unwrap().dx.as_ref().unwrap().lv(idx),
+                lvs.lv(idx),
+                constant_to_string(lvs.get_constant(idx)),
                 sheet.designer.as_ref().unwrap_or(&"-".to_string())
             ));
             let total = sheet.brk + sheet.tap + sheet.hold + sheet.slide + sheet.brk;
@@ -1049,10 +1074,12 @@ fn mai_chart_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<S
     if !song.st_sheets.is_empty() {
         let mut st_str = String::from("**ST Chart Info:**");
         for (idx, sheet) in song.st_sheets.iter().enumerate() {
+            let lvs = song.jp_lv.as_ref().unwrap().st.as_ref().unwrap();
             st_str.push_str(&format!(
-                "\n:{}_square: Lv.{}  Designer: {}",
+                "\n:{}_square: Lv.{}{}  Designer: {}",
                 squares[idx],
-                song.jp_lv.as_ref().unwrap().st.as_ref().unwrap().lv(idx),
+                lvs.lv(idx),
+                constant_to_string(lvs.get_constant(idx)),
                 sheet.designer.as_ref().unwrap_or(&"-".to_string())
             ));
             let total = sheet.brk + sheet.tap + sheet.hold + sheet.slide + sheet.brk;

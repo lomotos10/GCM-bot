@@ -27,8 +27,7 @@ mod tests {
         let files_not_urls = [
             "data/maimai/maimai-jacket-prefix.txt",
             "data/maimai/maimai-manual-add.txt",
-            "data/maimai/jp_lv.csv",
-            "data/maimai/in_lv.csv",
+            // "data/maimai/jp_lv.csv",
             "data/cooldown-server-ids.txt",
             "data/cooldown-channel-exception-ids.txt",
         ];

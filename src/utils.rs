@@ -665,7 +665,10 @@ pub fn float_to_level(f: &str) -> String {
 }
 
 pub fn float_to_constant(f: &str) -> Option<OrderedFloat<f32>> {
-    let f = OrderedFloat::from(f.parse::<f32>().unwrap());
+    let f = OrderedFloat::from(
+        f.parse::<f32>()
+            .unwrap_or_else(|_| panic!("Failed parse on supposed float: \"{}\"", f)),
+    );
 
     if f < (0.).into() {
         None
@@ -829,6 +832,8 @@ pub struct ChuniInfo {
     pub version: Option<String>,
     pub deleted: bool,
     pub category: ChuniCategory,
+    /// Some("01, "01155") stands for https://sdvx.in/chunithm/01/01155mst.htm
+    pub sdvxin: Option<(String, String)>,
 }
 
 #[derive(Debug, Eq, PartialEq, Default)]
