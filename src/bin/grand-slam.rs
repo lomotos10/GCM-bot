@@ -39,15 +39,15 @@ fn main() {
     gl.sort_by_key(|a| a.to_lowercase());
     cl.sort_by_key(|a| a.to_lowercase());
     ml.sort_by_key(|a| a.to_lowercase());
-    println!("ONGEKI:");
+    println!("ONGEKI: ({})", gl.len());
     for t in gl {
         println!("{}", t);
     }
-    println!("\nCHUNITHM:");
+    println!("\nCHUNITHM: ({})", cl.len());
     for t in cl {
         println!("{}", t);
     }
-    println!("\nMAIMAI:");
+    println!("\nMAIMAI: ({})", ml.len());
     for t in ml {
         println!("{}", t);
     }

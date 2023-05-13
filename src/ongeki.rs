@@ -660,6 +660,9 @@ fn set_constants(charts: &mut HashMap<String, OngekiInfo>) {
         if let Some(song) = charts.get_mut(&title) {
             let diff_idx = diff_to_idx(diff);
             let lv = song.lv.as_mut().unwrap();
+            if lv.lv(diff_idx) == "?" {
+                lv.set_lv(diff_idx, float_to_level(cst));
+            }
             assert_eq!(lv.lv(diff_idx), float_to_level(cst));
             if cst_exists {
                 lv.set_constant(diff_idx, cst.to_string());

@@ -112,7 +112,11 @@ async fn add_alias(
             &ctx.data().manual_alias_file_ongeki,
         ),
     };
-    let text = if let Some(title) =
+    let text = 
+    if let Some(title) =
+    get_title(&alias, aliases, ctx.guild_id().unwrap_or(GuildId(0))) {
+        format!("Alias \"{}\" already exists for song \"{}\"!\nYour alias has not been added.\nPlease contact the developer if you want additional actions taken. Thank you!", alias, title)
+    } else if let Some(title) =
         get_title(&song_title, aliases, ctx.guild_id().unwrap_or(GuildId(0)))
     {
         {
