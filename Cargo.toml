@@ -15,16 +15,14 @@ lazy_static = "1.4.0"
 curl = "0.4.43"
 url = "2.2.2"
 serde_json = "1.0.79"
-itertools = "0.7.6"
 strsim = "0.10.0"
 ordered-float = "3.0.0"
 walkdir = "2"
-syn = {version="1.0.57",features=["full","fold"]}
-quote = "1.0.8"
 html_parser = "0.6.3"
 chrono = "0.4"
 urlencoding = "2.1.0"
 tl = "0.7.6"
+regex = "1"
 
 [[bin]]
 name = "mai-diff-differences"

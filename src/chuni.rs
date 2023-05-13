@@ -171,9 +171,7 @@ pub async fn chuni_jacket(
     Ok(())
 }
 
-pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
-    let mut charts = HashMap::new();
-
+fn set_jp_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> Result<(), Error> {
     // Get JP difficulty.
     let url = fs::read_to_string("data/chuni/chuni-url.txt")?;
     let url = url.trim();
@@ -229,7 +227,10 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             );
         }
     }
+    Ok(())
+}
 
+fn set_intl_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> Result<(), Error> {
     // Get intl difficulty.
     let url = fs::read_to_string("data/chuni/chuni-intl.txt")?;
     let url = url.trim();
@@ -283,50 +284,13 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             // WORLD'S END item; TODO implement
         }
     }
+    Ok(())
+}
 
-    let jp_and_intl_version_is_different = false;
-    if jp_and_intl_version_is_different {
-        // Add intl level info
-        let file = File::open("data/chuni/chuni-new-plus-lv.csv")?;
-        let lines = BufReader::new(file).lines();
-        for line in lines.flatten() {
-            let line = line.split('\t').collect::<Vec<_>>();
-            assert_eq!(line.len(), 4);
-            let title = line[0];
-            let chart = charts.get_mut(title).unwrap();
-            if chart.intl_lv.is_none() {
-                chart.intl_lv = Some(Difficulty::default());
-            }
-            let inner = chart.intl_lv.as_mut().unwrap();
-            // Add level
-            let diff_idx = diff_to_idx(line[2]);
-            // let diff_str = inner.lv(diff_idx);
-            // assert_eq!(diff_str, "?");
-            inner.set_lv(diff_idx, line[3].to_string());
-        }
-
-        // Add intl constant info
-        let file = File::open("data/chuni/chuni-new-plus-cst.csv")?;
-        let lines = BufReader::new(file).lines();
-        for line in lines.flatten() {
-            let line = line.split('\t').collect::<Vec<_>>();
-            assert_eq!(line.len(), 4);
-            let title = line[0];
-            let chart = charts.get_mut(title).unwrap();
-            let inner = chart.intl_lv.as_mut().unwrap();
-            let cst = float_to_constant(line[3]);
-            let diff_idx = diff_to_idx(line[2]);
-            inner.set_constant(diff_idx, cst.unwrap().to_string());
-        }
-    } else {
-        // Same version; copy jp difficulty into intl
-        for info in charts.values_mut() {
-            if info.jp_lv.is_some() {
-                info.intl_lv = info.jp_lv.clone();
-            }
-        }
-    }
-
+fn set_constants(
+    charts: &mut HashMap<String, ChuniInfo>,
+    jp_and_intl_version_is_different: bool,
+) -> Result<(), Error> {
     // Get constants
     let constants = fs::read_to_string("data/chuni/chuni-info.txt")?;
     let url = constants.trim();
@@ -410,9 +374,10 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
 
             // Set difficulty by region.
             let regions = data["regions"].as_object().unwrap();
-            let jp_region = regions["jp"].as_bool().unwrap();
+            // let jp_region = regions["jp"].as_bool().unwrap();
             let intl_region = regions["intl"].as_bool().unwrap();
-            assert!(jp_region || !intl_region);
+            // Songs can be deleted first from jp then intl
+            // assert!(jp_region || !intl_region, "This song has only intl_region active: {}", title);
             if !intl_region {
                 if diff_c < 4 {
                     // song doesn't exist at all in intl
@@ -430,9 +395,147 @@ pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
             }
             // Assert that if song exists in intl according to arcade-songs, intl level data exists.
             if intl_region && diff_c == 0 {
-                assert!(chart.intl_lv.is_some(), "{:#?}", song);
+                // assert!(chart.intl_lv.is_some(), "{:#?}", song);
             }
         }
     }
+
+    Ok(())
+}
+
+fn set_intl_info(
+    charts: &mut HashMap<String, ChuniInfo>,
+    jp_and_intl_version_is_different: bool,
+) -> Result<(), Error> {
+    if jp_and_intl_version_is_different {
+        // Add intl level info
+        let file = File::open("data/chuni/chuni-sun-lv.csv")?;
+        let lines = BufReader::new(file).lines();
+        for line in lines.flatten() {
+            let line = line.split('\t').collect::<Vec<_>>();
+            assert_eq!(line.len(), 4);
+            let title = line[0];
+            let chart = charts
+                .get_mut(title)
+                .unwrap_or_else(|| panic!("Intl lv song title not in db: {}", title));
+            if chart.intl_lv.is_none() {
+                chart.intl_lv = Some(Difficulty::default());
+            }
+            let inner = chart.intl_lv.as_mut().unwrap();
+            // Add level
+            let diff_idx = diff_to_idx(line[2]);
+            // let diff_str = inner.lv(diff_idx);
+            // assert_eq!(diff_str, "?");
+            inner.set_lv(diff_idx, line[3].to_string());
+        }
+
+        // Add intl constant info
+        let file = File::open("data/chuni/chuni-sun-cst.csv")?;
+        let lines = BufReader::new(file).lines();
+        for line in lines.flatten() {
+            let line = line.split('\t').collect::<Vec<_>>();
+            assert_eq!(line.len(), 4);
+            let title = line[0];
+            let chart = charts
+                .get_mut(title)
+                .unwrap_or_else(|| panic!("Intl cc song title not in db: {}", title));
+            let inner = chart.intl_lv.as_mut().unwrap();
+            let cst = float_to_constant(line[3]);
+            let diff_idx = diff_to_idx(line[2]);
+            inner.set_constant(diff_idx, cst.unwrap().to_string());
+        }
+    } else {
+        // Same version; copy jp difficulty into intl
+        for info in charts.values_mut() {
+            if info.jp_lv.is_some() {
+                info.intl_lv = info.jp_lv.clone();
+            }
+        }
+    }
+
+    // Levels up until 9+ have only one constant - manually assign
+    for song in charts {
+        for diff in &mut song.1.intl_lv {
+            for i in 0..5 {
+                let lv = diff.lv(i);
+                if lv != "?" {
+                    let cc = lv.chars().filter(|c| c.is_numeric()).collect::<String>();
+                    let mut cc = cc.parse::<ordered_float::OrderedFloat<f32>>().unwrap();
+                    if cc >= 10.0.into() {
+                        continue;
+                    }
+                    if lv.contains('+') {
+                        cc += 0.5;
+                    }
+                    let actual_cc = diff.get_constant(i);
+                    assert!(actual_cc.is_none() || actual_cc == Some(cc), "failed to insert cc {} into chart {} with cc {:?}", cc, song.0, actual_cc);
+                    diff.set_constant(i, cc.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn set_manual_constants(charts: &mut HashMap<String, ChuniInfo>) {
+    // Add manual constant info
+    let file = File::open("data/chuni/chuni-manual-add.txt").unwrap();
+    let lines = BufReader::new(file).lines();
+    for line in lines.flatten() {
+        let line = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(line.len(), 4);
+        let (title, diff, region, cc) = (line[0], line[1], line[2], line[3]);
+        let diff_idx = diff_to_idx(diff);
+
+        let chart = charts
+            .get_mut(title)
+            .unwrap_or_else(|| panic!("{} <- title does not exist", title));
+        chart.deleted = false;
+        let inner = if region == "JP" {
+            chart.jp_lv.as_mut()
+        } else if region == "IN" {
+            if chart.intl_lv.is_none() {
+                chart.intl_lv = Some(Difficulty::default());
+            }
+            chart.intl_lv.as_mut()
+        } else {
+            todo!()
+        }
+        .unwrap();
+        if cc.contains('.') {
+            // Add constant
+            let cst = float_to_constant(cc);
+            let cc = inner.get_constant(diff_idx);
+            if cc.is_some() && cc != cst {
+                eprintln!(
+                    "Constant mismatch on manual constant line {:?}\n{:?}, {:?}",
+                    line, cc, cst
+                );
+            } else if inner.mas_c == cst {
+                eprintln!("{:?} exists on server", line);
+            } else {
+                // eprintln!("{:?} enter success", line);
+            }
+            inner.set_constant(diff_idx, cst.unwrap().to_string());
+        } else {
+            // Add level
+            let diff_str = inner.lv(diff_idx);
+            assert_eq!(diff_str, "?");
+            inner.set_lv(diff_idx, cc.to_string());
+        }
+    }
+}
+
+pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
+    let mut charts = HashMap::new();
+    let jp_and_intl_version_is_different = true;
+
+    set_jp_difficulty(&mut charts)?;
+    set_intl_difficulty(&mut charts)?;
+    set_constants(&mut charts, jp_and_intl_version_is_different)?;
+    set_intl_info(&mut charts, jp_and_intl_version_is_different)?;
+    set_manual_constants(&mut charts);
+
     Ok(charts)
 }
