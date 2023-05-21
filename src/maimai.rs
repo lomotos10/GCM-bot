@@ -1,10 +1,7 @@
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
-use poise::{
-    serenity_prelude::{
-        interaction::InteractionResponseType, Color, CreateActionRow, CreateButton,
-    },
-    ReplyHandle,
+use poise::serenity_prelude::{
+    interaction::InteractionResponseType, Color, CreateActionRow, CreateButton,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -465,7 +462,7 @@ fn set_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
     }
 }
 
-fn set_actual_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
+fn _set_actual_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
     // Get jp constants from second source.
     let file = File::open("data/maimai/festival_16-09-2022.json").unwrap();
     let songs: serde_json::Value = serde_json::from_reader(&file).unwrap();
@@ -1146,58 +1143,56 @@ Did you mean **{}** (for **{}**)?
                 f
             })
             .await?;
-        if let ReplyHandle::Unknown { interaction, http } = sent {
-            if let Context::Application(poise_ctx) = ctx {
-                let serenity_ctx = poise_ctx.discord;
-                let m = interaction.get_interaction_response(http).await.unwrap();
-                let mci = match m
-                    .await_component_interaction(serenity_ctx)
-                    .timeout(Duration::from_secs(10))
-                    .await
-                {
-                    Some(ci) => ci,
-                    None => {
-                        // ctx.send(|f| f.ephemeral(true).content("Timed out"))
-                        //     .await
-                        //     .unwrap();
-                        return Ok(());
-                    }
-                };
-                let actual_title = get_title(
-                    &mci.data.custom_id,
-                    aliases,
-                    ctx.guild_id()
-                        .unwrap_or(poise::serenity_prelude::GuildId(0)),
-                )
-                .unwrap();
-                mci.create_interaction_response(&http, |r| {
-                    r.kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|d| {
-                            // Make the message hidden for other users by setting `ephemeral(true)`.
-                            d.ephemeral(false)
-                                .content(format!("Query by <@{}>", ctx.author().id))
-                                .embed(|f| {
-                                    let (description, jacket) =
-                                        mai_chart_embed(actual_title.to_string(), &ctx).unwrap();
+        let reply = sent.into_message().await?;
+        if let Context::Application(poise_ctx) = ctx {
+            let serenity_ctx = poise_ctx.serenity_context();
+            let mci = match reply
+                .await_component_interaction(serenity_ctx)
+                .timeout(Duration::from_secs(10))
+                .await
+            {
+                Some(ci) => ci,
+                None => {
+                    // ctx.send(|f| f.ephemeral(true).content("Timed out"))
+                    //     .await
+                    //     .unwrap();
+                    return Ok(());
+                }
+            };
+            let actual_title = get_title(
+                &mci.data.custom_id,
+                aliases,
+                ctx.guild_id()
+                    .unwrap_or(poise::serenity_prelude::GuildId(0)),
+            )
+            .unwrap();
+            mci.create_interaction_response(&serenity_ctx.http, |r| {
+                r.kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|d| {
+                        // Make the message hidden for other users by setting `ephemeral(true)`.
+                        d.ephemeral(false)
+                            .content(format!("Query by <@{}>", ctx.author().id))
+                            .embed(|f| {
+                                let (description, jacket) =
+                                    mai_chart_embed(actual_title.to_string(), &ctx).unwrap();
 
-                                    let mut f = f
-                                        .title(mai_duplicate_alias_to_title(&actual_title))
-                                        .description(description)
-                                        .color(Color::from_rgb(0, 255, 255));
-                                    if let Some(jacket) = jacket {
-                                        f = f.thumbnail(format!(
-                                            "{}{}",
-                                            ctx.data().mai_jacket_prefix,
-                                            jacket
-                                        ));
-                                    }
+                                let mut f = f
+                                    .title(mai_duplicate_alias_to_title(&actual_title))
+                                    .description(description)
+                                    .color(Color::from_rgb(0, 255, 255));
+                                if let Some(jacket) = jacket {
+                                    f = f.thumbnail(format!(
+                                        "{}{}",
+                                        ctx.data().mai_jacket_prefix,
+                                        jacket
+                                    ));
+                                }
 
-                                    f
-                                })
-                        })
-                })
-                .await?;
-            }
+                                f
+                            })
+                    })
+            })
+            .await?;
         }
         return Ok(());
     }

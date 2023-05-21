@@ -468,7 +468,13 @@ fn set_intl_info(
                         cc += 0.5;
                     }
                     let actual_cc = diff.get_constant(i);
-                    assert!(actual_cc.is_none() || actual_cc == Some(cc), "failed to insert cc {} into chart {} with cc {:?}", cc, song.0, actual_cc);
+                    assert!(
+                        actual_cc.is_none() || actual_cc == Some(cc),
+                        "failed to insert cc {} into chart {} with cc {:?}",
+                        cc,
+                        song.0,
+                        actual_cc
+                    );
                     diff.set_constant(i, cc.to_string());
                 }
             }

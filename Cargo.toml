@@ -9,7 +9,7 @@ default-run = "gcm_bot"
 
 [dependencies]
 tokio = { version = "1.4.0", features = ["rt", "rt-multi-thread", "macros"] } # for async in general
-poise = "0.2.2"
+poise = "0.5.5"
 thiserror = "1.0.30"
 lazy_static = "1.4.0"
 curl = "0.4.43"

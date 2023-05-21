@@ -112,9 +112,8 @@ async fn add_alias(
             &ctx.data().manual_alias_file_ongeki,
         ),
     };
-    let text = 
-    if let Some(title) =
-    get_title(&alias, aliases, ctx.guild_id().unwrap_or(GuildId(0))) {
+    let text = if let Some(title) = get_title(&alias, aliases, ctx.guild_id().unwrap_or(GuildId(0)))
+    {
         format!("Alias \"{}\" already exists for song \"{}\"!\nYour alias has not been added.\nPlease contact the developer if you want additional actions taken. Thank you!", alias, title)
     } else if let Some(title) =
         get_title(&song_title, aliases, ctx.guild_id().unwrap_or(GuildId(0)))
@@ -163,7 +162,7 @@ async fn register(ctx: Context<'_>) -> Result<(), Error> {
 
 #[tokio::main]
 async fn main() {
-    let framework = poise::Framework::build()
+    let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![
                 mai_info(),
@@ -184,7 +183,7 @@ async fn main() {
         })
         .token(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
         .intents(serenity::GatewayIntents::non_privileged())
-        .user_data_setup(move |_ctx, _ready, _framework| {
+        .setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 let mai_charts = set_mai_charts()?;
                 let mai_aliases = set_aliases(mai_charts.keys(), "maimai")?;
