@@ -345,12 +345,6 @@ fn set_jp_constants(charts: &mut HashMap<String, MaiInfo>) {
             .get(line[6])
             .unwrap_or(&line[6].to_string())
             .to_string();
-        // Edge case handling for duplicate title
-        let title = if title == "Link" && line[3] == "-12" {
-            "Link (maimai)".to_string()
-        } else {
-            title
-        };
 
         if charts.contains_key(&title) {
             let entry = charts.get_mut(&title).unwrap();
