@@ -1089,8 +1089,8 @@ fn mai_chart_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<S
     Ok((embed, song.jp_jacket.clone()))
 }
 
-/// Get info about song charts in maimai
-#[poise::command(slash_command, prefix_command, rename = "mai-chart")]
+/// Get detailed info about song charts in maimai
+#[poise::command(slash_command, prefix_command, rename = "detailed-mai-info")]
 pub async fn mai_chart(
     ctx: Context<'_>,
     #[description = "Song title e.g. \"Selector\", \"bbb\", etc. You don't have to be exact; try things out!"]
