@@ -194,6 +194,7 @@ pub struct Aliases {
 
 #[derive(Debug, Default)]
 pub struct MainAliases<V> {
+    pub original: HashMap<String, V>,
     pub lowercased: HashMap<String, V>,
     pub lowercased_and_unspaced: HashMap<String, V>,
     pub alphanumeric_only: HashMap<String, V>,
@@ -227,6 +228,9 @@ pub fn get_curl(url: &str) -> String {
 // TODO: NEEDS REFACTOR
 pub fn get_title(title: &str, all_aliases: &Aliases, server_id: GuildId) -> Option<String> {
     let aliases = &all_aliases.main;
+    if let Some(a) = aliases.original.get(title) {
+        return Some(a.to_string());
+    }
     let titlem1 = title.to_lowercase();
     if let Some(a) = aliases.lowercased.get(&titlem1) {
         return Some(a.to_string());
@@ -294,6 +298,7 @@ pub fn set_aliases<'a, I>(titles: I, game: &str) -> Result<Aliases, Error>
 where
     I: Iterator<Item = &'a String>,
 {
+    let mut original = HashMap::new();
     let mut lowercased = HashMap::new();
     let mut lowercased_and_unspaced = HashMap::new();
     let mut alphanumeric_only = HashMap::new();
@@ -303,6 +308,8 @@ where
     let mut nicknames_alphanumeric_and_ascii = HashMap::new();
     // Oh god what is this trainwreck
     for title in titles {
+        original.insert(title.to_string(), title.to_string());
+
         let namem1 = title.to_lowercase();
         let a = lowercased.insert(namem1.to_string(), title.to_string());
         if let Some(a) = a {
@@ -573,6 +580,7 @@ where
 
     Ok(Aliases {
         main: MainAliases {
+            original,
             lowercased,
             lowercased_and_unspaced,
             alphanumeric_only,
@@ -613,6 +621,7 @@ pub fn get_closest_title(
         ((a.0 .0.clone(), a.0 .1 .1.clone()), a.1)
     };
 
+    candidates.push(f(&aliases.original, &title.to_string()));
     let titlem1 = title.to_lowercase();
     candidates.push(f(&aliases.lowercased, &titlem1));
     let title0 = titlem1.split_whitespace().collect::<String>();
@@ -653,11 +662,19 @@ pub fn get_closest_title(
     (a.0.clone(), a.1.clone())
 }
 
-pub fn float_to_level(f: &str) -> String {
+pub fn float_to_level(f: &str, game: Game) -> String {
     let f = f.parse::<f32>().unwrap().abs();
     let decimal = f - f.floor();
 
-    if decimal < 0.65 {
+    let plus_border = match game {
+        Game::Maimai => 6,
+        Game::Chunithm => 5,
+        Game::Ongeki => 7,
+    } as f32
+        * 0.1
+        - 0.05;
+
+    if decimal < plus_border {
         f.floor().to_string()
     } else {
         format!("{}+", f.floor())
@@ -755,6 +772,13 @@ pub struct MaiDifficulty {
     pub dx: Option<Difficulty>,
 }
 
+impl MaiDifficulty {
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.st.is_some() || self.dx.is_some()
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Default)]
 pub enum MaiCategory {
     PopAnime,
@@ -763,6 +787,7 @@ pub enum MaiCategory {
     GameVariety,
     Maimai,
     OngekiChuni,
+    Utage,
     #[default]
     Error,
 }
@@ -771,6 +796,7 @@ pub enum MaiCategory {
 pub struct MaiInfo {
     pub jp_lv: Option<MaiDifficulty>,
     pub intl_lv: Option<MaiDifficulty>,
+    pub utages: Vec<Utage>,
     pub jp_jacket: Option<String>,
     pub title: String,
     pub artist: String,
@@ -781,6 +807,17 @@ pub struct MaiInfo {
     pub deleted: bool,
     pub order: Option<usize>,
     pub category: MaiCategory,
+    pub title_kana: String,
+    pub additional_remas_version: Option<String>,
+    pub additional_st_version: Option<String>,
+    pub additional_dx_version: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Utage {
+    pub level: String,
+    pub kanji: String,
+    pub comment: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -814,8 +851,10 @@ pub fn mai_get_category(s: &str) -> MaiCategory {
         MaiCategory::Maimai
     } else if s == "オンゲキ＆CHUNITHM" {
         MaiCategory::OngekiChuni
+    } else if s == "宴会場" {
+        MaiCategory::Utage
     } else {
-        panic!("Invalid maimai song category")
+        panic!("Invalid maimai song category: {}", s)
     }
 }
 
@@ -869,16 +908,16 @@ pub fn chuni_get_category(s: &str) -> ChuniCategory {
     }
 }
 
-// pub fn float_to_chuni_level(f: &str) -> String {
-//     let f = f.parse::<f32>().unwrap().abs();
-//     let decimal = f - f.floor();
+pub fn float_to_chuni_level(f: &str) -> String {
+    let f = f.parse::<f32>().unwrap().abs();
+    let decimal = f - f.floor();
 
-//     if decimal < 0.45 {
-//         f.floor().to_string()
-//     } else {
-//         format!("{}+", f.floor())
-//     }
-// }
+    if decimal < 0.45 {
+        f.floor().to_string()
+    } else {
+        format!("{}+", f.floor())
+    }
+}
 
 /////////////////////// ongeki utils ///////////////////////
 
@@ -952,7 +991,7 @@ fn get_aliases(ctx: Context<'_>, game: Game) -> &Aliases {
     }
 }
 
-pub async fn jacket_template(ctx: Context<'_>, title: String, game: Game) -> Result<(), Error> {
+pub async fn jacket_template(ctx: Context<'_>, title: String, game: Game) -> eyre::Result<()> {
     // Get alias corresponding to game.
     let aliases_template = get_aliases(ctx, game);
 
@@ -1098,8 +1137,9 @@ Did you mean **{}** (for **{}**)?
     Ok(())
 }
 
+/// (description, jacket)
 type GetEmbed =
-    Arc<dyn Fn(String, &Context<'_>) -> Result<(String, Option<String>), Error> + Sync + Send>;
+    Arc<dyn Fn(String, &Context<'_>) -> eyre::Result<(String, Option<String>)> + Sync + Send>;
 
 pub async fn info_template(
     ctx: Context<'_>,
@@ -1108,7 +1148,7 @@ pub async fn info_template(
     get_embed: GetEmbed,
     color: (u8, u8, u8),
     duplicate_alias_to_title: Arc<dyn Fn(&String) -> String + Sync + Send>,
-) -> Result<(), Error> {
+) -> eyre::Result<()> {
     let aliases = get_aliases(ctx, game);
     // let actual_title = get_title(
     //     &title,

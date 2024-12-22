@@ -89,6 +89,24 @@ https://youtu.be/Ciiars5GCIs (Turn on English subs!)";
     Ok(())
 }
 
+/// ⌘ aaaaaaaaaaaaaaaaaaaaaaaaaaaa ⌘
+#[poise::command(slash_command, prefix_command, rename = "break-the-moonbase-with-beam")]
+async fn break_the_moonbase_with_beam(ctx: Context<'_>) -> Result<(), Error> {
+    let help = "(Note: There is an error in the video;
+you don't have to PERFECT the breaks, GREAT or GOOD is also ok!)
+https://www.youtube.com/watch?v=E4mf_mYdYNc";
+    ctx.say(help).await?;
+    Ok(())
+}
+
+/// Recommended play counts for each rating division.
+#[poise::command(slash_command, prefix_command, rename = "rating-and-play-count")]
+async fn rating_and_play_count(ctx: Context<'_>) -> Result<(), Error> {
+    let help = "It doesn't matter.";
+    ctx.say(help).await?;
+    Ok(())
+}
+
 /// Manually add song alias
 #[poise::command(slash_command, prefix_command, rename = "add-alias")]
 async fn add_alias(
@@ -177,6 +195,8 @@ async fn main() {
                 help_kr(),
                 how_to_improve(),
                 how_to_actually_improve(),
+                break_the_moonbase_with_beam(),
+                rating_and_play_count(),
                 register(),
             ],
             ..Default::default()

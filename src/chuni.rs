@@ -5,6 +5,8 @@ use std::{
     sync::Arc,
 };
 
+use eyre::{bail, ensure};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 
 use crate::utils::*;
@@ -40,10 +42,8 @@ lazy_static! {
     };
 }
 
-fn get_chuni_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<String>), Error> {
-    let song = ctx.data().chuni_charts.get(&title);
-
-    let song = song.unwrap();
+fn get_chuni_embed(title: String, ctx: &Context<'_>) -> eyre::Result<(String, Option<String>)> {
+    let song = ctx.data().chuni_charts.get(&title).unwrap();
 
     let mut description = if song.deleted {
         "**THIS SONG IS DELETED**\n\n"
@@ -136,6 +136,8 @@ pub async fn chuni_info(
 }
 
 fn level_description(lv: &Difficulty, title: &str) -> String {
+    let title = title.replace(" -", " ");
+    let title = title.strip_prefix('-').unwrap_or(&title);
     let title = urlencoding::encode(title);
     format!(
         "[B](https://www.youtube.com/results?search_query=CHUNITHM+{}+BASIC) **{}**{} / [A](https://www.youtube.com/results?search_query=CHUNITHM+{}+ADVANCED) **{}**{} / [E](https://www.youtube.com/results?search_query=CHUNITHM+{}+EXPERT) **{}**{} / [M](https://www.youtube.com/results?search_query=CHUNITHM+{}+MASTER) **{}**{}{}",
@@ -171,7 +173,7 @@ pub async fn chuni_jacket(
     Ok(())
 }
 
-fn set_jp_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> Result<(), Error> {
+fn set_jp_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<()> {
     // Get JP difficulty.
     let url = fs::read_to_string("data/chuni/chuni-url.txt")?;
     let url = url.trim();
@@ -230,25 +232,17 @@ fn set_jp_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> Result<(), Erro
     Ok(())
 }
 
-fn set_intl_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> Result<(), Error> {
+fn set_intl_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<()> {
     // Get intl difficulty.
     let url = fs::read_to_string("data/chuni/chuni-intl.txt")?;
     let url = url.trim();
     let s = get_curl(url);
-    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let songs: serde_json::Value = serde_json::from_str(&s)?;
 
-    let songs = if let serde_json::Value::Array(s) = songs {
-        s
-    } else {
-        panic!()
-    };
+    let songs = songs.as_array().unwrap();
 
     for song in songs {
-        let song = if let serde_json::Value::Object(m) = song {
-            m
-        } else {
-            panic!()
-        };
+        let song = song.as_object().unwrap();
 
         let title = song["title"].as_str().unwrap().to_string();
         if song.get("lev_bas").is_some() {
@@ -290,7 +284,7 @@ fn set_intl_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> Result<(), Er
 fn set_constants(
     charts: &mut HashMap<String, ChuniInfo>,
     jp_and_intl_version_is_different: bool,
-) -> Result<(), Error> {
+) -> eyre::Result<()> {
     // Get constants
     let constants = fs::read_to_string("data/chuni/chuni-info.txt")?;
     let url = constants.trim();
@@ -355,9 +349,7 @@ fn set_constants(
             if data.get("internalLevelValue").is_none() {
                 continue;
             }
-            let c = if let Some(c) = data["internalLevelValue"].as_f64() {
-                c
-            } else {
+            let Some(c) = data["internalLevelValue"].as_f64() else {
                 continue;
             };
             if c != 0.0 {
@@ -376,8 +368,6 @@ fn set_constants(
             let regions = data["regions"].as_object().unwrap();
             // let jp_region = regions["jp"].as_bool().unwrap();
             let intl_region = regions["intl"].as_bool().unwrap();
-            // Songs can be deleted first from jp then intl
-            // assert!(jp_region || !intl_region, "This song has only intl_region active: {}", title);
             if !intl_region {
                 if diff_c < 4 {
                     // song doesn't exist at all in intl
@@ -406,18 +396,73 @@ fn set_constants(
 fn set_intl_info(
     charts: &mut HashMap<String, ChuniInfo>,
     jp_and_intl_version_is_different: bool,
-) -> Result<(), Error> {
+) -> eyre::Result<()> {
+    // Get constants
+    let s = fs::read_to_string("data/chuni/chuni-info-luminous.json")?;
+    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
+    for song in songs {
+        let song = song.as_object().unwrap();
+
+        let meta = song;
+        let title = meta["title"].as_str().unwrap().to_string();
+
+        // skip WE
+        if meta["category"] == "WORLD'S END" {
+            continue;
+        }
+
+        let title = CHUNI_INFO_REPLACEMENT.get(&title).unwrap_or(&title);
+        let chart = charts.get_mut(title).unwrap();
+
+        let diffs = song["sheets"].as_array().unwrap();
+
+        if !diffs[0].as_object().unwrap()["regions"]
+            .as_object()
+            .unwrap()["intl"]
+            .as_bool()
+            .unwrap()
+        {
+            continue;
+        }
+        if chart.intl_lv.is_none() {
+            chart.intl_lv = Some(Difficulty::default());
+        }
+        let difficulty = chart.intl_lv.as_mut().unwrap();
+        for data in diffs.iter() {
+            let data = data.as_object().unwrap();
+            let diff_c = diff_to_idx(data["difficulty"].as_str().unwrap());
+            if data.get("internalLevelValue").is_none() {
+                continue;
+            }
+            let Some(c) = data["internalLevelValue"].as_f64() else {
+                continue;
+            };
+            if c != 0.0 && jp_and_intl_version_is_different {
+                difficulty.set_lv(diff_c, float_to_chuni_level(&c.to_string()));
+                difficulty.set_constant(diff_c, c.to_string());
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn _set_intl_info_csv(
+    charts: &mut HashMap<String, ChuniInfo>,
+    jp_and_intl_version_is_different: bool,
+) -> eyre::Result<()> {
     if jp_and_intl_version_is_different {
         // Add intl level info
         let file = File::open("data/chuni/chuni-sun-lv.csv")?;
         let lines = BufReader::new(file).lines();
         for line in lines.flatten() {
-            let line = line.split('\t').collect::<Vec<_>>();
+            let line = line.split('\t').collect_vec();
             assert_eq!(line.len(), 4);
             let title = line[0];
-            let chart = charts
-                .get_mut(title)
-                .unwrap_or_else(|| panic!("Intl lv song title not in db: {}", title));
+            let Some(chart) = charts.get_mut(title) else {
+                continue;
+            };
             if chart.intl_lv.is_none() {
                 chart.intl_lv = Some(Difficulty::default());
             }
@@ -433,12 +478,12 @@ fn set_intl_info(
         let file = File::open("data/chuni/chuni-sun-cst.csv")?;
         let lines = BufReader::new(file).lines();
         for line in lines.flatten() {
-            let line = line.split('\t').collect::<Vec<_>>();
+            let line = line.split('\t').collect_vec();
             assert_eq!(line.len(), 4);
             let title = line[0];
-            let chart = charts
-                .get_mut(title)
-                .unwrap_or_else(|| panic!("Intl cc song title not in db: {}", title));
+            let Some(chart) = charts.get_mut(title) else {
+                continue;
+            };
             let inner = chart.intl_lv.as_mut().unwrap();
             let cst = float_to_constant(line[3]);
             let diff_idx = diff_to_idx(line[2]);
@@ -468,7 +513,7 @@ fn set_intl_info(
                         cc += 0.5;
                     }
                     let actual_cc = diff.get_constant(i);
-                    assert!(
+                    ensure!(
                         actual_cc.is_none() || actual_cc == Some(cc),
                         "failed to insert cc {} into chart {} with cc {:?}",
                         cc,
@@ -484,19 +529,19 @@ fn set_intl_info(
     Ok(())
 }
 
-fn set_manual_constants(charts: &mut HashMap<String, ChuniInfo>) {
+fn set_manual_constants(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<()> {
     // Add manual constant info
-    let file = File::open("data/chuni/chuni-manual-add.txt").unwrap();
+    let file = File::open("data/chuni/chuni-manual-add.txt")?;
     let lines = BufReader::new(file).lines();
     for line in lines.flatten() {
-        let line = line.split('\t').collect::<Vec<_>>();
+        let line = line.split('\t').collect_vec();
         assert_eq!(line.len(), 4);
         let (title, diff, region, cc) = (line[0], line[1], line[2], line[3]);
         let diff_idx = diff_to_idx(diff);
 
-        let chart = charts
-            .get_mut(title)
-            .unwrap_or_else(|| panic!("{} <- title does not exist", title));
+        let Some(chart) = charts.get_mut(title) else {
+            bail!("{} <- title does not exist", title)
+        };
         chart.deleted = false;
         let inner = if region == "JP" {
             chart.jp_lv.as_mut()
@@ -531,17 +576,18 @@ fn set_manual_constants(charts: &mut HashMap<String, ChuniInfo>) {
             inner.set_lv(diff_idx, cc.to_string());
         }
     }
+    Ok(())
 }
 
 pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     let mut charts = HashMap::new();
-    let jp_and_intl_version_is_different = true;
+    let jp_and_intl_version_is_different = false;
 
     set_jp_difficulty(&mut charts)?;
     set_intl_difficulty(&mut charts)?;
     set_constants(&mut charts, jp_and_intl_version_is_different)?;
     set_intl_info(&mut charts, jp_and_intl_version_is_different)?;
-    set_manual_constants(&mut charts);
+    set_manual_constants(&mut charts)?;
 
     Ok(charts)
 }

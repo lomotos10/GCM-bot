@@ -23,6 +23,9 @@ chrono = "0.4"
 urlencoding = "2.1.0"
 tl = "0.7.6"
 regex = "1"
+eyre = "0.6.8"
+itertools = "0.11.0"
+unicode-normalization = "0.1.20"
 
 [[bin]]
 name = "mai-diff-differences"

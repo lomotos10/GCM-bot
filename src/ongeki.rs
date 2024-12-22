@@ -4,6 +4,9 @@ use std::{
     sync::Arc,
 };
 
+use eyre::bail;
+use itertools::Itertools;
+
 use crate::utils::*;
 
 lazy_static::lazy_static! {
@@ -193,7 +196,7 @@ lazy_static::lazy_static! {
     ].iter().map(|s| s.to_string()).collect();
 }
 
-fn get_ongeki_embed(title: String, ctx: &Context<'_>) -> Result<(String, Option<String>), Error> {
+fn get_ongeki_embed(title: String, ctx: &Context<'_>) -> eyre::Result<(String, Option<String>)> {
     let song = ctx.data().ongeki_charts.get(&title);
 
     let song = song.unwrap();
@@ -301,6 +304,8 @@ pub async fn ongeki_info(
 }
 
 fn level_description(lv: &Difficulty, title: &str) -> String {
+    let title = title.replace(" -", " ");
+    let title = title.strip_prefix('-').unwrap_or(&title);
     let title = urlencoding::encode(title);
     if !lv.bas.is_empty() {
         format!(
@@ -351,20 +356,15 @@ pub async fn ongeki_jacket(
     Ok(())
 }
 
-fn set_jp_difficulty(charts: &mut HashMap<String, OngekiInfo>) {
-    let url = fs::read_to_string("data/ongeki/ongeki-url.txt").unwrap();
+fn set_jp_difficulty(charts: &mut HashMap<String, OngekiInfo>) -> eyre::Result<()> {
+    let url = fs::read_to_string("data/ongeki/ongeki-url.txt")?;
     let url = url.trim();
     let s = get_curl(url);
-
-    // Parse the string of data into serde_json::Value.
-    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
-
+    let songs: serde_json::Value = serde_json::from_str(&s)?;
     let songs = songs.as_array().unwrap();
 
     for song in songs {
-        let song = if let serde_json::Value::Object(m) = song {
-            m
-        } else {
+        let serde_json::Value::Object(song) = song else {
             panic!()
         };
 
@@ -438,15 +438,14 @@ fn set_jp_difficulty(charts: &mut HashMap<String, OngekiInfo>) {
             );
         }
     }
+    Ok(())
 }
 
-fn set_deleted_songs(charts: &mut HashMap<String, OngekiInfo>) {
-    let url = fs::read_to_string("data/ongeki/ongeki-deleted.txt").unwrap();
+fn set_deleted_songs(charts: &mut HashMap<String, OngekiInfo>) -> eyre::Result<()> {
+    let url = fs::read_to_string("data/ongeki/ongeki-deleted.txt")?;
     let url = url.trim();
     let s = get_curl(url);
-
-    // Parse the string of data into serde_json::Value.
-    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let songs: serde_json::Value = serde_json::from_str(&s)?;
     let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
 
     for song in songs {
@@ -536,19 +535,17 @@ fn set_deleted_songs(charts: &mut HashMap<String, OngekiInfo>) {
             charts.get_mut(&title).unwrap().jp_jacket = jp_jacket;
         }
     }
+    Ok(())
 }
 
-fn set_constants(charts: &mut HashMap<String, OngekiInfo>) {
-    let url = fs::read_to_string("data/ongeki/ongeki-info.txt").unwrap();
+fn set_constants(charts: &mut HashMap<String, OngekiInfo>) -> eyre::Result<()> {
+    let url = fs::read_to_string("data/ongeki/ongeki-info.txt")?;
     let url = url.trim();
     let s = get_curl(url);
 
     // Get table element from entire html
-    let json = html_parser::Dom::parse(&s)
-        .unwrap()
-        .to_json_pretty()
-        .unwrap();
-    let songs: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let json = html_parser::Dom::parse(&s)?.to_json_pretty()?;
+    let songs: serde_json::Value = serde_json::from_str(&json)?;
     let song = songs.as_object().unwrap();
     let m = song.get("children").unwrap();
     let m = m.as_array().unwrap();
@@ -661,9 +658,11 @@ fn set_constants(charts: &mut HashMap<String, OngekiInfo>) {
             let diff_idx = diff_to_idx(diff);
             let lv = song.lv.as_mut().unwrap();
             if lv.lv(diff_idx) == "?" {
-                lv.set_lv(diff_idx, float_to_level(cst));
+                lv.set_lv(diff_idx, float_to_level(cst, Game::Ongeki));
             }
-            assert_eq!(lv.lv(diff_idx), float_to_level(cst));
+            if lv.lv(diff_idx) != float_to_level(cst, Game::Ongeki) {
+                continue;
+            }
             if cst_exists {
                 lv.set_constant(diff_idx, cst.to_string());
             }
@@ -671,12 +670,13 @@ fn set_constants(charts: &mut HashMap<String, OngekiInfo>) {
             // eprintln!("{}", title);
         }
     }
+    Ok(())
 }
 
-fn set_vs_character_level_element(charts: &mut HashMap<String, OngekiInfo>) {
+fn set_vs_character_level_element(charts: &mut HashMap<String, OngekiInfo>) -> eyre::Result<()> {
     // Get VS character level and element.
-    let s = fs::read_to_string("data/ongeki/ongeki-curl.html").unwrap();
-    let dom = tl::parse(&s, tl::ParserOptions::default()).unwrap();
+    let s = fs::read_to_string("data/ongeki/ongeki-curl.html")?;
+    let dom = tl::parse(&s, tl::ParserOptions::default())?;
     let parser = dom.parser();
     let element = dom
         .nodes()
@@ -696,7 +696,7 @@ fn set_vs_character_level_element(charts: &mut HashMap<String, OngekiInfo>) {
         .map(|(a, b)| (a, b.unwrap()))
         .filter(|a| a.1.contains("mu__table--scroll_inside"))
         .map(|a| a.0)
-        .collect::<Vec<_>>();
+        .collect_vec();
 
     for (idx, node) in element.iter().enumerate() {
         let children = node.children().unwrap();
@@ -724,9 +724,7 @@ fn set_vs_character_level_element(charts: &mut HashMap<String, OngekiInfo>) {
                 let top = title_node.children().unwrap();
                 let top = top.top();
                 if top.len() > 2 {
-                    eprintln!("{:#?}", top[0].get(parser));
-                    eprintln!("{:#?}", top[1].get(parser));
-                    panic!();
+                    bail!("{:#?}\n{:#?}", top[0].get(parser), top[1].get(parser));
                 }
                 title_node = top[0].get(parser).unwrap();
             }
@@ -828,15 +826,16 @@ fn set_vs_character_level_element(charts: &mut HashMap<String, OngekiInfo>) {
             }
         }
     }
+    Ok(())
 }
 
 pub fn set_ongeki_charts() -> Result<HashMap<String, OngekiInfo>, Error> {
     let mut charts: HashMap<String, OngekiInfo> = HashMap::new();
 
-    set_jp_difficulty(&mut charts);
-    set_deleted_songs(&mut charts);
-    set_constants(&mut charts);
-    set_vs_character_level_element(&mut charts);
+    set_jp_difficulty(&mut charts)?;
+    set_deleted_songs(&mut charts)?;
+    set_constants(&mut charts)?;
+    set_vs_character_level_element(&mut charts)?;
 
     Ok(charts)
 }
