@@ -538,6 +538,7 @@ fn set_deleted_songs(charts: &mut HashMap<String, OngekiInfo>) -> eyre::Result<(
     Ok(())
 }
 
+#[allow(clippy::get_first)]
 fn set_constants(charts: &mut HashMap<String, OngekiInfo>) -> eyre::Result<()> {
     let url = fs::read_to_string("data/ongeki/ongeki-info.txt")?;
     let url = url.trim();

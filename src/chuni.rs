@@ -232,7 +232,16 @@ fn set_jp_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<()
     Ok(())
 }
 
-fn set_intl_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<()> {
+fn set_intl_difficulty(
+    charts: &mut HashMap<String, ChuniInfo>,
+    jp_and_intl_version_is_different: bool,
+) -> eyre::Result<()> {
+    if !jp_and_intl_version_is_different {
+        for v in charts.values_mut() {
+            v.intl_lv = v.jp_lv.clone();
+        }
+        return Ok(());
+    }
     // Get intl difficulty.
     let url = fs::read_to_string("data/chuni/chuni-intl.txt")?;
     let url = url.trim();
@@ -276,6 +285,36 @@ fn set_intl_difficulty(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<
             }
         } else {
             // WORLD'S END item; TODO implement
+        }
+    }
+    Ok(())
+}
+
+fn remove_unreleased_intl_info(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result<()> {
+    let constants = fs::read_to_string("data/chuni/chuni-info.txt")?;
+    let url = constants.trim();
+    let s = get_curl(url);
+    let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
+    for song in songs {
+        let song = song.as_object().unwrap();
+
+        let meta = song;
+        let title = meta["title"].as_str().unwrap().to_string();
+
+        // skip WE
+        if meta["category"] == "WORLD'S END" {
+            continue;
+        }
+
+        let title = CHUNI_INFO_REPLACEMENT.get(&title).unwrap_or(&title);
+        let chart = charts.get_mut(title).unwrap();
+        let diffs = song["sheets"].as_array().unwrap();
+        let data = diffs[0].as_object().unwrap();
+        let regions = data["regions"].as_object().unwrap();
+        let intl_region = regions["intl"].as_bool().unwrap();
+        if !intl_region {
+            chart.intl_lv = None;
         }
     }
     Ok(())
@@ -398,14 +437,17 @@ fn set_intl_info(
     jp_and_intl_version_is_different: bool,
 ) -> eyre::Result<()> {
     // Get constants
-    let s = fs::read_to_string("data/chuni/chuni-info-luminous.json")?;
+    let s = fs::read_to_string("data/chuni/chuni-info-verse.json")?;
     let songs: serde_json::Value = serde_json::from_str(&s).unwrap();
     let songs = songs.as_object().unwrap()["songs"].as_array().unwrap();
     for song in songs {
         let song = song.as_object().unwrap();
 
         let meta = song;
-        let title = meta["title"].as_str().unwrap().to_string();
+        let mut title = meta["title"].as_str().unwrap().to_string();
+        if title == "Help me, ERINNNNNN!!" {
+            title = "Help me, ERINNNNNN!!（Band ver.）".to_string();
+        }
 
         // skip WE
         if meta["category"] == "WORLD'S END" {
@@ -413,18 +455,23 @@ fn set_intl_info(
         }
 
         let title = CHUNI_INFO_REPLACEMENT.get(&title).unwrap_or(&title);
-        let chart = charts.get_mut(title).unwrap();
+
+        let chart = charts.entry(title.to_string()).or_insert(ChuniInfo {
+            title: title.to_string(),
+            ..Default::default()
+        });
 
         let diffs = song["sheets"].as_array().unwrap();
 
-        if !diffs[0].as_object().unwrap()["regions"]
-            .as_object()
-            .unwrap()["intl"]
-            .as_bool()
-            .unwrap()
-        {
-            continue;
-        }
+        // // Commented because this shouldn't matter.. right?
+        // if !diffs[0].as_object().unwrap()["regions"]
+        //     .as_object()
+        //     .unwrap()["intl"]
+        //     .as_bool()
+        //     .unwrap()
+        // {
+        //     continue;
+        // }
         if chart.intl_lv.is_none() {
             chart.intl_lv = Some(Difficulty::default());
         }
@@ -456,7 +503,7 @@ fn _set_intl_info_csv(
         // Add intl level info
         let file = File::open("data/chuni/chuni-sun-lv.csv")?;
         let lines = BufReader::new(file).lines();
-        for line in lines.flatten() {
+        for line in lines.map_while(Result::ok) {
             let line = line.split('\t').collect_vec();
             assert_eq!(line.len(), 4);
             let title = line[0];
@@ -477,7 +524,7 @@ fn _set_intl_info_csv(
         // Add intl constant info
         let file = File::open("data/chuni/chuni-sun-cst.csv")?;
         let lines = BufReader::new(file).lines();
-        for line in lines.flatten() {
+        for line in lines.map_while(Result::ok) {
             let line = line.split('\t').collect_vec();
             assert_eq!(line.len(), 4);
             let title = line[0];
@@ -500,7 +547,7 @@ fn _set_intl_info_csv(
 
     // Levels up until 9+ have only one constant - manually assign
     for song in charts {
-        for diff in &mut song.1.intl_lv {
+        if let Some(diff) = &mut song.1.intl_lv {
             for i in 0..5 {
                 let lv = diff.lv(i);
                 if lv != "?" {
@@ -533,7 +580,7 @@ fn set_manual_constants(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result
     // Add manual constant info
     let file = File::open("data/chuni/chuni-manual-add.txt")?;
     let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
+    for line in lines.map_while(Result::ok) {
         let line = line.split('\t').collect_vec();
         assert_eq!(line.len(), 4);
         let (title, diff, region, cc) = (line[0], line[1], line[2], line[3]);
@@ -581,12 +628,13 @@ fn set_manual_constants(charts: &mut HashMap<String, ChuniInfo>) -> eyre::Result
 
 pub fn set_chuni_charts() -> Result<HashMap<String, ChuniInfo>, Error> {
     let mut charts = HashMap::new();
-    let jp_and_intl_version_is_different = false;
+    let jp_and_intl_version_is_different = true;
 
     set_jp_difficulty(&mut charts)?;
-    set_intl_difficulty(&mut charts)?;
+    set_intl_difficulty(&mut charts, jp_and_intl_version_is_different)?;
     set_constants(&mut charts, jp_and_intl_version_is_different)?;
     set_intl_info(&mut charts, jp_and_intl_version_is_different)?;
+    remove_unreleased_intl_info(&mut charts)?;
     set_manual_constants(&mut charts)?;
 
     Ok(charts)

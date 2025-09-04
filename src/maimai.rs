@@ -20,24 +20,12 @@ lazy_static! {
         [
             ("GIGANTOMAKHIA", "GIGANTØMAKHIA"),
             ("D✪N’T ST✪P R✪CKIN’", "D✪N’T  ST✪P  R✪CKIN’"),
+            ("Help me, ERINNNNNN!!", "Help me, ERINNNNNN!!（Band ver.）"),
+            ("Bad Apple!! feat nomico", "Bad Apple!! feat.nomico"),
         ]
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect::<HashMap<_, _>>()
-    };
-    static ref DX_SONGS_WITH_ST: HashSet<String> = {
-        [
-            "Technicians High",
-            "Destr0yer",
-            "Halcyon",
-            "サンバランド",
-            "VIIIbit Explorer",
-            "渦状銀河のシンフォニエッタ",
-            "華の集落、秋のお届け",
-        ]
-        .iter()
-        .map(|k| k.to_string())
-        .collect::<HashSet<_>>()
     };
     static ref EXCEPTIONS_ST_AFTER_DX: Vec<(String, String)> = {
         [
@@ -48,14 +36,21 @@ lazy_static! {
             ("VIIIbit Explorer", "maimai FESTiVAL"),
             ("渦状銀河のシンフォニエッタ", "maimai BUDDiES"),
             ("華の集落、秋のお届け", "maimai BUDDiES PLUS"),
+            ("プリズム△▽リズム", "maimai PRiSM PLUS"),
         ]
         .iter()
         .map(|(a, b)| (a.to_string(), b.to_string()))
         .collect()
     };
+    static ref DX_SONGS_WITH_ST: HashSet<String> = {
+        EXCEPTIONS_ST_AFTER_DX
+            .iter()
+            .map(|(a, _)| a.to_string())
+            .collect()
+    };
     static ref ADDITIONAL_REMAS: Vec<(String, String)> = {
         [
-            ("Bad Apple!! feat nomico", "ORANGE PLUS"),
+            ("Bad Apple!! feat.nomico", "ORANGE PLUS"),
             ("Starlight Disco", "ORANGE PLUS"),
             ("マトリョシカ", "ORANGE PLUS"),
             ("Future", "ORANGE PLUS"),
@@ -135,6 +130,8 @@ lazy_static! {
             ("STARTLINER", "BUDDiES"),
             ("レーイレーイ", "BUDDiES"),
             ("言ノ葉カルマ", "BUDDiES"),
+            ("幻想に咲いた花", "PRiSM"),
+            ("マツヨイナイトバグ", "PRiSM"),
         ]
         .into_iter()
         .map(|(a, b)| (a.to_string(), b.to_string()))
@@ -199,6 +196,13 @@ lazy_static! {
             ("＊ハロー、プラネット。", "BUDDiES"),
             ("ハッピーシンセサイザ", "BUDDiES PLUS"),
             ("御旗のもとに", "BUDDiES PLUS"),
+            ("sweet little sister", "BUDDiES PLUS"),
+            ("炎歌 -ほむらうた-", "BUDDiES PLUS"),
+            ("One Step Ahead", "PRiSM"),
+            ("LANCE", "PRiSM"),
+            ("Imitation:Loud Lounge", "PRiSM"),
+            ("ゴーゴー幽霊船", "PRiSM PLUS"),
+            ("Believe the Rainbow", "PRiSM PLUS"),
         ]
         .into_iter()
         .map(|(a, b)| (a.to_string(), b.to_string()))
@@ -737,7 +741,9 @@ fn set_actual_constants(
         for (diff, chart) in song["Charts"].as_array().unwrap().iter().enumerate() {
             let cc = chart["Level Constant"].as_str().unwrap();
             let Some(region_diff) = charts.get_mut(title) else {
-                bail!("No song of title `{title}` found")
+                // TEMP until help me erin is resolved
+                eprintln!("No song of title `{title}` found");
+                continue;
             };
             let region_diff = if is_jp {
                 region_diff.jp_lv.as_mut()
@@ -745,11 +751,12 @@ fn set_actual_constants(
                 region_diff.intl_lv.as_mut()
             };
             let Some(region_diff) = region_diff else {
-                bail!(
+                eprintln!(
                     "No {} difficulty on song `{}`",
                     if is_jp { "jp" } else { "intl" },
                     title
-                )
+                );
+                continue;
             };
             let dx_or_st_chart = if dx {
                 &mut region_diff.dx
@@ -777,9 +784,11 @@ fn set_actual_constants(
     Ok(())
 }
 
-fn set_intl_difficulty(charts: &mut HashMap<String, MaiInfo>) -> eyre::Result<()> {
+fn set_intl_difficulty(
+    charts: &mut HashMap<String, MaiInfo>,
+    jp_and_intl_version_is_different: bool,
+) -> eyre::Result<()> {
     // Get intl difficulty.
-    let jp_and_intl_version_is_different = true;
     if jp_and_intl_version_is_different {
         let file = File::open("data/maimai/in_lv.csv")?;
         let reader = BufReader::new(file);
@@ -800,6 +809,11 @@ fn set_intl_difficulty(charts: &mut HashMap<String, MaiInfo>) -> eyre::Result<()
             // Edge case handling for duplicate title
             let title = if title == "Link" && line[3] == "-12" {
                 "Link (maimai)".to_string()
+            } else {
+                title
+            };
+            let title = if SONG_REPLACEMENT.contains_key(&title) {
+                SONG_REPLACEMENT[&title].clone()
             } else {
                 title
             };
@@ -1145,29 +1159,29 @@ fn set_song_info(charts: &mut HashMap<String, MaiInfo>) -> eyre::Result<()> {
         r.version = version;
         r.category = mai_get_category(song["category"].as_str().unwrap());
 
-        if let Some(_jp_lv) = &mut r.jp_lv {
-            // info site has less constant info; use other site instead
-
-            // if !dx_constants.is_empty() {
-            //     let dx_diff = jp_lv.dx.as_mut().unwrap();
-            //     dx_diff.bas_c = dx_constants[0];
-            //     dx_diff.adv_c = dx_constants[1];
-            //     dx_diff.exp_c = dx_constants[2];
-            //     dx_diff.mas_c = dx_constants[3];
-            //     if let Some(rem_c) = dx_constants.get(4) {
-            //         dx_diff.extra_c = *rem_c;
-            //     }
-            // }
-            // if !st_constants.is_empty() {
-            //     let st_diff = jp_lv.st.as_mut().unwrap();
-            //     st_diff.bas_c = st_constants[0];
-            //     st_diff.adv_c = st_constants[1];
-            //     st_diff.exp_c = st_constants[2];
-            //     st_diff.mas_c = st_constants[3];
-            //     if let Some(rem_c) = st_constants.get(4) {
-            //         st_diff.extra_c = *rem_c;
-            //     }
-            // }
+        if let Some(jp_lv) = &mut r.jp_lv {
+            if !dx_constants.is_empty() {
+                let dx_diff = jp_lv.dx.as_mut().unwrap();
+                for i in 0..5 {
+                    let existing_cst = dx_diff.get_const_mut(i);
+                    if existing_cst.is_none() {
+                        if let Some(Some(acquired_cst)) = dx_constants.get(i) {
+                            *existing_cst = Some(*acquired_cst);
+                        }
+                    }
+                }
+            }
+            if !st_constants.is_empty() {
+                let st_diff = jp_lv.st.as_mut().unwrap();
+                for i in 0..5 {
+                    let existing_cst = st_diff.get_const_mut(i);
+                    if existing_cst.is_none() {
+                        if let Some(Some(acquired_cst)) = st_constants.get(i) {
+                            *existing_cst = Some(*acquired_cst);
+                        }
+                    }
+                }
+            }
         } else {
             if let Some(artist) = song.get("artist") {
                 r.artist = artist.as_str().unwrap().to_string();
@@ -1243,7 +1257,7 @@ fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) -> eyre::Result<(
     // Add manual constant info
     let file = File::open("data/maimai/maimai-manual-add.txt")?;
     let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
+    for line in lines.map_while(Result::ok) {
         let line = line.split('\t').collect_vec();
         assert_eq!(line.len(), 5);
         let title = line[0];
@@ -1297,7 +1311,7 @@ fn set_manual_constants(charts: &mut HashMap<String, MaiInfo>) -> eyre::Result<(
             // Add level
             let diff_idx = diff_to_idx(line[2]);
             let diff_str = inner.lv(diff_idx);
-            assert_eq!(diff_str, "?");
+            assert_eq!(diff_str, "?", "title: {title}, diff: {diff_str}");
             inner.set_lv(diff_idx, line[4].to_string());
         }
     }
@@ -1331,16 +1345,11 @@ pub fn set_mai_charts() -> Result<HashMap<String, MaiInfo>, Error> {
     let mut charts = HashMap::new();
 
     set_jp_difficulty(&mut charts)?;
+    set_actual_constants(&mut charts, "data/maimai/prismplus 2025-04-24.json", true)?;
     // set_jp_constants(&mut charts)?;
-    set_actual_constants(&mut charts, "data/maimai/prism 2024-12-12.json", true)?;
-    set_intl_difficulty(&mut charts)?;
+    set_intl_difficulty(&mut charts, false)?;
+    // set_actual_constants(&mut charts, "data/maimai/prism 2025-01-24.json", false)?;
     set_song_info(&mut charts)?;
-    set_actual_constants(
-        &mut charts,
-        "data/maimai/buddiesplus I051 2024-09-20.json",
-        false,
-    )?;
-    // set_intl_difficulty(&mut charts)?; // TODO DELETE
     set_manual_constants(&mut charts)?;
     set_additional_info(&mut charts)?;
 

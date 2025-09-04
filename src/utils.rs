@@ -1,10 +1,10 @@
 use ordered_float::OrderedFloat;
 use poise::serenity_prelude::{
-    model::application::interaction::InteractionResponseType, AttachmentType, ChannelId, Color,
-    CreateActionRow, CreateButton, GuildId, UserId,
+    model::application::interaction::InteractionResponseType, AttachmentType, Color,
+    CreateActionRow, CreateButton, GuildId,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, Write},
     sync::Arc,
@@ -21,9 +21,9 @@ pub type Context<'a> = poise::Context<'a, Data, Error>;
 // pub const USER_COOLDOWN: i64 = 1800;
 // pub const CHANNEL_COOLDOWN: i64 = 300;
 
-type Maps = (HashMap<UserId, i64>, HashMap<ChannelId, i64>);
+// type Maps = (HashMap<UserId, i64>, HashMap<ChannelId, i64>);
 
-#[derive(Debug, poise::ChoiceParameter, Copy, Clone)]
+#[derive(Debug, poise::ChoiceParameter, Copy, Clone, PartialEq)]
 pub enum Game {
     #[name = "maimai"]
     Maimai,
@@ -51,9 +51,9 @@ pub struct Data {
     pub manual_alias_file_chuni: Arc<Mutex<File>>,
     pub manual_alias_file_ongeki: Arc<Mutex<File>>,
 
-    pub cooldown_server_ids: HashSet<GuildId>,
-    pub cooldown_channel_exception_ids: HashSet<ChannelId>,
-    pub timestamps: Arc<Mutex<HashMap<GuildId, Maps>>>,
+    // pub cooldown_server_ids: HashSet<GuildId>,
+    // pub cooldown_channel_exception_ids: HashSet<ChannelId>,
+    // pub timestamps: Arc<Mutex<HashMap<GuildId, Maps>>>,
     pub alias_log: Arc<Mutex<File>>,
 }
 
@@ -97,6 +97,22 @@ impl Default for Difficulty {
 }
 
 impl Difficulty {
+    pub fn get_const_mut(&mut self, idx: usize) -> &mut Option<OrderedFloat<f32>> {
+        if idx == 0 {
+            &mut self.bas_c
+        } else if idx == 1 {
+            &mut self.adv_c
+        } else if idx == 2 {
+            &mut self.exp_c
+        } else if idx == 3 {
+            &mut self.mas_c
+        } else if idx == 4 {
+            &mut self.extra_c
+        } else {
+            panic!()
+        }
+    }
+
     pub fn lv(&self, idx: usize) -> String {
         if idx == 0 {
             self.bas.clone()
@@ -382,7 +398,7 @@ where
         .map(|path| File::open(path.path()).unwrap());
     for file in files {
         let lines = BufReader::new(file).lines();
-        for line in lines.flatten() {
+        for line in lines.map_while(Result::ok) {
             let split = line.split('\t');
             let split = split.collect::<Vec<_>>();
             let title = split[0];
@@ -441,7 +457,7 @@ where
     let mut community_aliases = HashMap::<GuildId, MainAliases<(String, String)>>::new();
     let file = File::open(format!("./data/aliases/manual/{}.tsv", game)).unwrap();
     let lines = BufReader::new(file).lines();
-    for line in lines.flatten() {
+    for line in lines.map_while(Result::ok) {
         let split = line.split('\t');
         let split = split.collect::<Vec<_>>();
         assert!(
@@ -594,6 +610,7 @@ where
 }
 
 /// TODO: REFACTOR PLEASE PLEASE PLEASE PLEASE PLEASE PLEASE PLEASE PLEASE
+/// Returns (closest entry in aliases, original title of that entry)
 pub fn get_closest_title(
     title: &str,
     all_aliases: &Aliases,
@@ -603,55 +620,73 @@ pub fn get_closest_title(
     let aliases = &all_aliases.main;
     let comm_aliases = all_aliases.manual.get(&server_id);
 
+    // Returns ((closest entry in aliases, original title of that entry), closeness score)
     let f = |x: &HashMap<String, String>, title: &String| {
         let a = x
             .iter()
             .map(|x| (x, strsim::jaro_winkler(x.0, title)))
-            .max_by_key(|x| OrderedFloat::from(x.1))
-            .unwrap();
-        ((a.0 .0.clone(), a.0 .1.clone()), a.1)
+            .max_by_key(|x| OrderedFloat::from(x.1))?;
+        Some(((a.0 .0.clone(), a.0 .1.clone()), a.1))
     };
 
-    let g = |x: &HashMap<String, (String, String)>, title: &String| {
-        let a = x
+    // Returns ((closest entry in aliases, original title of that entry), closeness score)
+    let g = |alias_map: &HashMap<String, (String, String)>, title: &String| {
+        let a = alias_map
             .iter()
             .map(|x| (x, strsim::jaro_winkler(x.0, title)))
-            .max_by_key(|x| OrderedFloat::from(x.1))
-            .unwrap();
-        ((a.0 .0.clone(), a.0 .1 .1.clone()), a.1)
+            .max_by_key(|x| OrderedFloat::from(x.1))?;
+        Some(((a.0 .0.clone(), a.0 .1 .1.clone()), a.1))
     };
 
-    candidates.push(f(&aliases.original, &title.to_string()));
+    let push = |candidates: &mut Vec<((String, String), f64)>,
+                close_entry: Option<((String, String), f64)>| {
+        if let Some(close_entry) = close_entry {
+            candidates.push(close_entry);
+        }
+    };
+
+    push(&mut candidates, f(&aliases.original, &title.to_string()));
     let titlem1 = title.to_lowercase();
-    candidates.push(f(&aliases.lowercased, &titlem1));
+    push(&mut candidates, f(&aliases.lowercased, &titlem1));
     let title0 = titlem1.split_whitespace().collect::<String>();
-    candidates.push(f(&aliases.lowercased_and_unspaced, &title0));
-    // candidates.push(f(&aliases.nicknames_lowercased_and_unspaced, &title0));
+    push(
+        &mut candidates,
+        f(&aliases.lowercased_and_unspaced, &title0),
+    );
     let title1 = title0
         .chars()
         .filter(|c| c.is_alphanumeric())
         .collect::<String>();
-    candidates.push(f(&aliases.alphanumeric_only, &title1));
-    // candidates.push(f(&aliases.nicknames_alphanumeric_only, &title1));
+    push(&mut candidates, f(&aliases.alphanumeric_only, &title1));
+    // push(&mut candidates, f(&aliases.nicknames_alphanumeric_only, &title1));
     let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
-    candidates.push(f(&aliases.alphanumeric_and_ascii, &title2));
-    // candidates.push(f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
+    push(&mut candidates, f(&aliases.alphanumeric_and_ascii, &title2));
+    // push(&mut candidates, f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
 
     if let Some(comm_aliases) = comm_aliases {
         let titlem1 = title.to_lowercase();
-        // candidates.push(g(&comm_aliases.lowercased, &titlem1));
+        // push(&mut candidates, g(&comm_aliases.lowercased, &titlem1));
         let title0 = titlem1.split_whitespace().collect::<String>();
-        // candidates.push(g(&comm_aliases.lowercased_and_unspaced, &title0));
-        candidates.push(g(&comm_aliases.nicknames_lowercased_and_unspaced, &title0));
+        // push(&mut candidates, g(&comm_aliases.lowercased_and_unspaced, &title0));
+        push(
+            &mut candidates,
+            g(&comm_aliases.nicknames_lowercased_and_unspaced, &title0),
+        );
         let title1 = title0
             .chars()
             .filter(|c| c.is_alphanumeric())
             .collect::<String>();
-        // candidates.push(g(&comm_aliases.alphanumeric_only, &title1));
-        candidates.push(g(&comm_aliases.nicknames_alphanumeric_only, &title1));
+        // push(&mut candidates, g(&comm_aliases.alphanumeric_only, &title1));
+        push(
+            &mut candidates,
+            g(&comm_aliases.nicknames_alphanumeric_only, &title1),
+        );
         let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
-        // candidates.push(g(&comm_aliases.alphanumeric_and_ascii, &title2));
-        candidates.push(g(&comm_aliases.nicknames_alphanumeric_and_ascii, &title2));
+        // push(&mut candidates, g(&comm_aliases.alphanumeric_and_ascii, &title2));
+        push(
+            &mut candidates,
+            g(&comm_aliases.nicknames_alphanumeric_and_ascii, &title2),
+        );
     }
 
     let a = &candidates
@@ -673,6 +708,10 @@ pub fn float_to_level(f: &str, game: Game) -> String {
     } as f32
         * 0.1
         - 0.05;
+
+    if game == Game::Maimai && f.floor() as usize <= 6 {
+        return f.floor().to_string();
+    }
 
     if decimal < plus_border {
         f.floor().to_string()

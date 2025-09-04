@@ -1,9 +1,7 @@
-use poise::serenity_prelude::{self as serenity, ChannelId, GuildId};
+use poise::serenity_prelude::{self as serenity, GuildId};
 use std::io::Write;
 use std::{
-    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader},
     sync::Arc,
 };
 use tokio::sync::Mutex;
@@ -211,30 +209,30 @@ async fn main() {
                 let chuni_aliases = set_aliases(chuni_charts.keys(), "chuni")?;
                 let ongeki_charts = set_ongeki_charts()?;
                 let ongeki_aliases = set_aliases(ongeki_charts.keys(), "ongeki")?;
-                let cooldown_server_ids = {
-                    let file = File::open("data/cooldown-server-ids.txt")?;
-                    BufReader::new(file)
-                        .lines()
-                        .map(|l| l.unwrap().parse::<u64>())
-                        .filter(|b| b.is_ok())
-                        .map(|l| GuildId(l.unwrap()))
-                        .collect::<HashSet<_>>()
-                };
-                let cooldown_channel_exception_ids = {
-                    let file = File::open("data/cooldown-channel-exception-ids.txt")?;
-                    BufReader::new(file)
-                        .lines()
-                        .map(|l| l.unwrap().parse::<u64>())
-                        .filter(|b| b.is_ok())
-                        .map(|l| ChannelId(l.unwrap()))
-                        .collect::<HashSet<_>>()
-                };
-                let timestamps = Arc::new(Mutex::new(
-                    cooldown_server_ids
-                        .iter()
-                        .map(|k| (*k, (HashMap::new(), HashMap::new())))
-                        .collect(),
-                ));
+                // let cooldown_server_ids = {
+                //     let file = File::open("data/cooldown-server-ids.txt")?;
+                //     BufReader::new(file)
+                //         .lines()
+                //         .map(|l| l.unwrap().parse::<u64>())
+                //         .filter(|b| b.is_ok())
+                //         .map(|l| GuildId(l.unwrap()))
+                //         .collect::<HashSet<_>>()
+                // };
+                // let cooldown_channel_exception_ids = {
+                //     let file = File::open("data/cooldown-channel-exception-ids.txt")?;
+                //     BufReader::new(file)
+                //         .lines()
+                //         .map(|l| l.unwrap().parse::<u64>())
+                //         .filter(|b| b.is_ok())
+                //         .map(|l| ChannelId(l.unwrap()))
+                //         .collect::<HashSet<_>>()
+                // };
+                // let timestamps = Arc::new(Mutex::new(
+                //     cooldown_server_ids
+                //         .iter()
+                //         .map(|k| (*k, (HashMap::new(), HashMap::new())))
+                //         .collect(),
+                // ));
                 let alias_log = Arc::new(Mutex::new(File::create(format!(
                     "alias_log_{}.txt",
                     chrono::prelude::Utc::now()
@@ -278,9 +276,9 @@ async fn main() {
                     manual_alias_file_chuni,
                     manual_alias_file_ongeki,
 
-                    cooldown_server_ids,
-                    cooldown_channel_exception_ids,
-                    timestamps,
+                    // cooldown_server_ids,
+                    // cooldown_channel_exception_ids,
+                    // timestamps,
                     alias_log,
                 })
             })
