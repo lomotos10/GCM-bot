@@ -658,16 +658,12 @@ pub fn get_closest_title(
         .filter(|c| c.is_alphanumeric())
         .collect::<String>();
     push(&mut candidates, f(&aliases.alphanumeric_only, &title1));
-    // push(&mut candidates, f(&aliases.nicknames_alphanumeric_only, &title1));
     let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
     push(&mut candidates, f(&aliases.alphanumeric_and_ascii, &title2));
-    // push(&mut candidates, f(&aliases.nicknames_alphanumeric_and_ascii, &title2));
 
     if let Some(comm_aliases) = comm_aliases {
         let titlem1 = title.to_lowercase();
-        // push(&mut candidates, g(&comm_aliases.lowercased, &titlem1));
         let title0 = titlem1.split_whitespace().collect::<String>();
-        // push(&mut candidates, g(&comm_aliases.lowercased_and_unspaced, &title0));
         push(
             &mut candidates,
             g(&comm_aliases.nicknames_lowercased_and_unspaced, &title0),
@@ -676,13 +672,11 @@ pub fn get_closest_title(
             .chars()
             .filter(|c| c.is_alphanumeric())
             .collect::<String>();
-        // push(&mut candidates, g(&comm_aliases.alphanumeric_only, &title1));
         push(
             &mut candidates,
             g(&comm_aliases.nicknames_alphanumeric_only, &title1),
         );
         let title2 = title1.chars().filter(|c| c.is_ascii()).collect::<String>();
-        // push(&mut candidates, g(&comm_aliases.alphanumeric_and_ascii, &title2));
         push(
             &mut candidates,
             g(&comm_aliases.nicknames_alphanumeric_and_ascii, &title2),
